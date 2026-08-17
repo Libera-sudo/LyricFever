@@ -187,6 +187,9 @@ import MediaRemoteAdapter
     #endif
     var isFetchingTranslation = false
     var translationExists: Bool { !translatedLyric.isEmpty}
+    // Tracks the in-flight local translation so a song change cancels the previous one
+    // instead of letting a stale result overwrite the new song's lyrics.
+    private var localTranslationTask: Task<Void, Never>?
     
     // CoreData container (for saved lyrics)
     let coreDataContainer: NSPersistentContainer
@@ -1014,6 +1017,70 @@ import MediaRemoteAdapter
     }
     
     #if os(macOS)
+    /// Translates the current lyrics, preferring the local Hy-MT2 model and falling back to
+    /// Apple's translator whenever it is unavailable or returns an incomplete result.
+    func startTranslation() {
+        // Every path out of this function has to leave isFetchingTranslation false unless
+        // something is actually still running, otherwise the UI stays stuck on "translating"
+        // until the next song happens to translate successfully.
+        localTranslationTask?.cancel()
+        guard userDefaultStorage.translate else {
+            translatedLyric = []
+            isFetchingTranslation = false
+            return
+        }
+        let lines = currentlyPlayingLyrics
+        guard !lines.isEmpty else {
+            translatedLyric = []
+            isFetchingTranslation = false
+            return
+        }
+        let requestedSong = currentlyPlaying
+        isFetchingTranslation = true
+        localTranslationTask = Task { [weak self] in
+            guard let self else { return }
+            let local = await LocalTranslationService.translate(lines, to: userLocaleLanguage)
+            guard !Task.isCancelled else { return }
+            // The track may have changed while the request was in flight; a late result
+            // must never be pinned onto a different song's lyrics.
+            guard currentlyPlaying == requestedSong else { return }
+            if let local, local.count == lines.count {
+                translatedLyric = matchingChineseScript(local, for: userLocaleLanguage)
+                isFetchingTranslation = false
+            } else if !reloadTranslationConfigIfTranslating() {
+                // Normally Apple's translator takes over here, driving itself through
+                // translationSessionConfig and the .translationTask modifier, and clears
+                // the flag when it finishes. It declines when translation was switched off
+                // while this request was in flight -- then nothing follows, so clear it here.
+                isFetchingTranslation = false
+            }
+        }
+    }
+
+    /// Hy-MT2 writes Simplified Chinese whatever variant was asked for -- its template only
+    /// understands "Chinese". When the target locale asks for Traditional, run the result
+    /// through the converters RomanizerService already keeps loaded, picking the regional
+    /// standard the locale implies. Any other target language passes straight through.
+    private func matchingChineseScript(_ lines: [String], for language: Locale.Language) -> [String] {
+        guard language.languageCode?.identifier == "zh",
+              language.script?.identifier == "Hant" else { return lines }
+        let region = language.region?.identifier
+        return lines.map { line in
+            let lyric = LyricLine(startTime: 0, words: line)
+            let converted: String?
+            switch region {
+                case "HK", "MO":
+                    converted = RomanizerService.generateHongKongTransliteration(lyric)
+                case "TW":
+                    converted = RomanizerService.generateTaiwanTransliteration(lyric)
+                default:
+                    converted = RomanizerService.generateTraditionalNeutralTransliteration(lyric)
+            }
+            // Falling back to the untouched line keeps Simplified text rather than a hole.
+            return converted ?? line
+        }
+    }
+
     func reloadTranslationConfigIfTranslating() -> Bool {
         if userDefaultStorage.translate {
             if translationSessionConfig == TranslationSession.Configuration(source: translationSourceLanguage, target: userLocaleLanguage) {
@@ -1053,7 +1120,7 @@ import MediaRemoteAdapter
         currentlyPlayingLyrics = newLyrics
         setBackgroundColor()
         fetchTranslationSourceLanguage()
-        let _ = reloadTranslationConfigIfTranslating()
+        startTranslation()
 //        romanizeDidChange()
         chinesePreferenceDidChange()
         // we romanize afterwards, in-case the chinese conversion array was populated

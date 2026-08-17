@@ -108,13 +108,13 @@ struct LyricFever: App {
                 viewmodel.saveKaraokeFontOnTermination()
             }
             .onChange(of: viewmodel.translationSourceLanguage) {
-                // don't call reloadTranslationConfigIfTranslating(), that invalidates when config is the same
-                if viewmodel.userDefaultStorage.translate {
-                    viewmodel.translationSessionConfig = TranslationSession.Configuration(source: viewmodel.translationSourceLanguage, target: viewmodel.userLocaleLanguage)
-                }
+                // Goes through startTranslation() rather than setting the config directly:
+                // configuring the Apple session here would race the in-flight local
+                // translation and overwrite its result.
+                viewmodel.startTranslation()
             }
             .onChange(of: viewmodel.userLocaleLanguage) {
-                let _ = viewmodel.reloadTranslationConfigIfTranslating()
+                viewmodel.startTranslation()
             }
             .onChange(of: viewmodel.userDefaultStorage.chinesePreference) {
                 viewmodel.chinesePreferenceDidChange()
@@ -128,9 +128,8 @@ struct LyricFever: App {
 //                }
 //            }
             .onChange(of: viewmodel.userDefaultStorage.translate) {
-                if !viewmodel.reloadTranslationConfigIfTranslating() {
-                    viewmodel.translatedLyric = []
-                }
+                // startTranslation() clears translatedLyric itself when translation is off.
+                viewmodel.startTranslation()
             }
             .onChange(of: viewmodel.currentPlayer) {
                 print("Setting hasOnboarded to false due to player change")
