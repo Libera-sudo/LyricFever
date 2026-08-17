@@ -27,15 +27,15 @@ protocol Player {
     // additional menubar functions
     var volume: Int { get }
     
-    // fullscreen functions
+    // playback and volume controls, driven from the menubar window
     func decreaseVolume()
     func increaseVolume()
     func setVolume(to newVolume: Double)
     func togglePlayback()
     func rewind()
     func forward()
-    
-    // fullscreen album art
+
+    // album art, shown in the menubar window and used to derive the accent colour
     @MainActor
     var artworkImage: NSImage? { get async }
 //    var artworkImageURL: URL? { get }

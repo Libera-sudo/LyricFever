@@ -135,12 +135,6 @@ struct LyricFever: App {
                 print("Setting hasOnboarded to false due to player change")
                 viewmodel.userDefaultStorage.hasOnboarded = false
             }
-            .onChange(of: viewmodel.fullscreen) {
-                if viewmodel.fullscreen {
-                    openWindow(id: "fullscreen")
-                    NSApplication.shared.activate(ignoringOtherApps: true)
-                }
-            }
             .onChange(of: viewmodel.userDefaultStorage.hasOnboarded) {
                 if viewmodel.userDefaultStorage.hasOnboarded {
                     viewmodel.didOnboard()
@@ -178,33 +172,6 @@ struct LyricFever: App {
             }
         }
         .menuBarExtraStyle(.window)
-        Window("Lyric Fever: Fullscreen", id: "fullscreen") {
-            FullscreenView()
-                .windowFullScreenBehavior(.enabled)
-                .preferredColorScheme(.dark)
-                .environment(viewmodel)
-                .onAppear {
-                    // Block "Esc" button
-                    NSEvent.addLocalMonitorForEvents(matching: .keyDown) { (aEvent) -> NSEvent? in
-                            if aEvent.keyCode == 53 { // if esc pressed
-                                return nil
-                            }
-                            return aEvent
-                        }
-                    Task { @MainActor in
-                        let window = NSApp.windows.first {$0.identifier?.rawValue == "fullscreen"}
-                        window?.collectionBehavior = .fullScreenPrimary
-                        if window?.styleMask.rawValue != 49167 {
-                            window?.toggleFullScreen(true)
-                        }
-                    }
-                }
-                .onDisappear {
-                    NSApp.setActivationPolicy(.accessory)
-                    viewmodel.fullscreen = false
-                }
-        }
-        .defaultSize(width: NSScreen.mainWidth, height: NSScreen.mainHeight)
         Window("Lyric Fever: Onboarding", id: "onboarding") { // << here !!
             OnboardingWindow().frame(minWidth: 700, maxWidth: 700, minHeight: 600, maxHeight: 600, alignment: .center)
                 .environment(viewmodel)
@@ -213,9 +180,7 @@ struct LyricFever: App {
                     NSApp.setActivationPolicy(.regular)
                 }
                 .onDisappear {
-                    if !viewmodel.fullscreen {
-                        NSApp.setActivationPolicy(.accessory)
-                    }
+                    NSApp.setActivationPolicy(.accessory)
                 }
         }
         .windowResizability(.contentSize)
@@ -229,9 +194,7 @@ struct LyricFever: App {
                     NSApp.setActivationPolicy(.regular)
                 }
                 .onDisappear {
-                    if !viewmodel.fullscreen {
-                        NSApp.setActivationPolicy(.accessory)
-                    }
+                    NSApp.setActivationPolicy(.accessory)
                 }
         }
         .windowResizability(.contentSize)
@@ -243,9 +206,7 @@ struct LyricFever: App {
                     NSApp.setActivationPolicy(.regular)
                 }
                 .onDisappear {
-                    if !viewmodel.fullscreen {
-                        NSApp.setActivationPolicy(.accessory)
-                    }
+                    NSApp.setActivationPolicy(.accessory)
                 }
         }
             .windowResizability(.contentSize)

@@ -144,10 +144,10 @@ import MediaRemoteAdapter
     
     var animatedDisplay: Bool {
         get {
-            displayKaraoke || fullscreen
+            displayKaraoke
         }
         set {
-            
+
         }
     }
     
@@ -161,20 +161,6 @@ import MediaRemoteAdapter
         }
         set {
             
-        }
-    }
-    var displayFullscreen: Bool {
-        get {
-            fullscreen
-        }
-        set {
-            if fullscreen {
-                NSApp.windows.first {$0.identifier?.rawValue == "fullscreen"}?.makeKeyAndOrderFront(self)
-                NSApplication.shared.activate(ignoringOtherApps: true)
-            } else {
-                fullscreen = true
-                NSApp.setActivationPolicy(.regular)
-            }
         }
     }
     var currentlyPlayingAppleMusicPersistentID: String? = nil
@@ -191,7 +177,6 @@ import MediaRemoteAdapter
     var translatedLyric: [String] = []
     var showLyrics = true
     #if os(macOS)
-    var fullscreen = false
     var spotifyConnectDelay: Bool = false
     var airplayDelay: Bool = false
     #endif
@@ -239,7 +224,7 @@ import MediaRemoteAdapter
     // Override menubar with an update message
     var mustUpdateUrgent: Bool = false
 
-    // Delayed variable to hook onto for fullscreen (whether to display lyrics or not)
+    // Delayed variable to hook onto for whether to display lyrics or not.
     // Prevents flickering that occurs when we directly bind to currentlyPlayingLyrics.isEmpty()
     var lyricsIsEmptyPostLoad: Bool = true
     
@@ -360,9 +345,6 @@ import MediaRemoteAdapter
         }
         KeyboardShortcuts.onKeyUp(for: .init("romanize")) { [self] in
             userDefaultStorage.romanize.toggle()
-        }
-        KeyboardShortcuts.onKeyUp(for: .init("fullscreen")) { [self] in
-            displayFullscreen.toggle()
         }
         guard userDefaultStorage.hasOnboarded else {
             return

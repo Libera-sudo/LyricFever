@@ -23,10 +23,6 @@ class UserDefaultStorage {
     @ObservableUserDefault(.init(key: "showSongDetailsInMenubar", defaultValue: false, store: .standard))
     @ObservationIgnored var showSongDetailsInMenubar: Bool
     #endif
-    @ObservableUserDefault(.init(key: "blurFullscreen", defaultValue: true, store: .standard))
-    @ObservationIgnored var blurFullscreen: Bool
-    @ObservableUserDefault(.init(key: "animateOnStartupFullscreen", defaultValue: true, store: .standard))
-    @ObservationIgnored var animateOnStartupFullscreen: Bool
     @ObservableUserDefault(.init(key: "romanize", defaultValue: false, store: .standard))
     @ObservationIgnored var romanize: Bool
     @ObservableUserDefault(.init(key: "romanizeMetadata", defaultValue: true, store: .standard))

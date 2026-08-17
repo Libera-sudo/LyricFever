@@ -195,14 +195,6 @@ struct MenubarWindowView: View {
                     currentHoveredItem = .none
                 }
             }
-            MenubarButton(buttonText: "", imageText: "arrow.up.left.and.arrow.down.right", buttonState: displayFullscreen) {
-                viewmodel.displayFullscreen.toggle()
-                dismiss()
-            }
-            .onHover { isHovering in
-                currentHoveredItem = isHovering ? .enableFullscreen : .none
-            }
-//            .foregroundStyle(.white)
             MenubarButton(buttonText: "", imageText: "dock.rectangle", buttonState: displayKaraoke) {
                 viewmodel.userDefaultStorage.karaoke.toggle()
             }
@@ -313,16 +305,6 @@ struct MenubarWindowView: View {
         Text("TODO")
     }
     
-    
-    var displayFullscreen: ButtonState {
-        if !viewmodel.userDefaultStorage.hasOnboarded {
-            return .disabled
-        } else if viewmodel.displayFullscreen {
-            return .enabled
-        } else {
-            return .clickable
-        }
-    }
     
     var displayKaraoke: ButtonState {
         guard viewmodel.userDefaultStorage.hasOnboarded else {
