@@ -38,7 +38,12 @@ enum LocalTranslationService {
     /// The whole song has to resolve within this budget or the local path gives up. Per-line
     /// timeouts do not bound the total -- 50 lines four at a time can stack into minutes on a
     /// stalled model, and the user watches an untranslated song for every one of them.
-    private static let overallTimeout: TimeInterval = 12
+    ///
+    /// 18s rather than something tighter because LM Studio unloads the model when idle and
+    /// the request that wakes it measured ~12.3s; once warm a line comes back in ~0.13s, so a
+    /// whole song lands in a couple of seconds. Budgeting near the cold-start cost means every
+    /// song after an idle period falls back to Apple for no reason other than the clock.
+    private static let overallTimeout: TimeInterval = 18
 
     // MARK: - Entry point
 
