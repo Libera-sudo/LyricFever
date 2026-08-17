@@ -24,7 +24,13 @@ import MediaRemoteAdapter
     static let shared = ViewModel()
     
     // Apple Music Tahoe broken AppleScript workaround
-    let musicController = MediaController(bundleIdentifier: "com.apple.Music")
+    //
+    // No bundle identifier: upstream removed that parameter in the same commit that fixed a
+    // pipe deadlock, on the grounds that the filtering "never worked". Nothing is lost —
+    // payloads are already filtered by applicationName where they are consumed — and the
+    // deadlock mattered: artwork exceeds the 64KB pipe buffer, so on the older build it never
+    // arrived and every track showed a placeholder cover.
+    let musicController = MediaController()
 //    var appleMusicUniqueIdentifier: String?
 
     var currentlyPlaying: String?
