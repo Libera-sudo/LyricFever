@@ -27,9 +27,9 @@ import MediaRemoteAdapter
     //
     // No bundle identifier: upstream removed that parameter in the same commit that fixed a
     // pipe deadlock, on the grounds that the filtering "never worked". Nothing is lost —
-    // payloads are already filtered by applicationName where they are consumed — and the
-    // deadlock mattered: artwork exceeds the 64KB pipe buffer, so on the older build it never
-    // arrived and every track showed a placeholder cover.
+    // payloads are filtered by bundleIdentifier where they are consumed — and the deadlock
+    // mattered: artwork exceeds the 64KB pipe buffer, so on the older build it never arrived
+    // and every track showed a placeholder cover.
     let musicController = MediaController()
 //    var appleMusicUniqueIdentifier: String?
 
@@ -72,7 +72,11 @@ import MediaRemoteAdapter
                     print("Apple Music Artwork Workaround: Ignoring No Artwork")
                     return
                 }
-                guard data?.payload.applicationName == "Music" else {
+                // Match on the bundle identifier, not applicationName: the latter is the
+                // app's *localised* display name, so it reads "音樂" on a Chinese system and
+                // never equals "Music". That silently dropped every artwork payload for
+                // anyone not running an English system.
+                guard data?.payload.bundleIdentifier == "com.apple.Music" else {
                     return
                 }
                 self.artworkImage = artwork
