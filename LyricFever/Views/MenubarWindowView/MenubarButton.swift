@@ -26,6 +26,7 @@ public struct MenubarButton: View {
                 ZStack {
                     Image(systemName: imageText)
                         .bold()
+                        .foregroundStyle(buttonState.foregroundStyle)
                     if disabled {
                         Capsule()
                             .fill(Color.white)

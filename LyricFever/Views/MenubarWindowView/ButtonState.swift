@@ -31,4 +31,48 @@ enum ButtonState {
                 return AnyShapeStyle(.thickMaterial)
         }
     }
+
+    /// The icon colour that stays readable on top of `fillStyle`.
+    ///
+    /// Callers force `colorScheme` to `.dark`, which makes the icon white by default. That is
+    /// right for the inactive states, whose `.thickMaterial` stays dark over this panel, but
+    /// wrong for `.enabled`: album colours are deliberately lightened when extracted, and the
+    /// background is brightened by another 0.3 before being drawn, so a white icon lands on a
+    /// near-white field. With no album colour at all the fill falls back to `.primary`, which
+    /// under the forced dark scheme is pure white and hides the icon completely.
+    var foregroundStyle: Color {
+        switch self {
+            case .enabled:
+                guard let background = ViewModel.shared.currentBackground else { return .black }
+                return background.legibleForeground(afterBrightening: 0.3)
+            case .disabled, .clickable, .loading, .missing:
+                return .white
+        }
+    }
+}
+
+extension Color {
+    /// Black or white -- whichever keeps contrast once this colour has been brightened the way
+    /// the button background is.
+    ///
+    /// Judged on WCAG relative luminance rather than HSB brightness: a saturated yellow and a
+    /// saturated blue can report the same brightness while differing enormously in how light
+    /// they actually appear, and it is the latter that decides whether an icon reads.
+    func legibleForeground(afterBrightening amount: CGFloat) -> Color {
+        #if canImport(AppKit)
+        guard let srgb = NSColor(self).usingColorSpace(.sRGB) else { return .white }
+        func linearised(_ component: CGFloat) -> CGFloat {
+            let brightened = min(max(component + amount, 0), 1)
+            return brightened <= 0.03928 ? brightened / 12.92
+                                         : pow((brightened + 0.055) / 1.055, 2.4)
+        }
+        let luminance = 0.2126 * linearised(srgb.redComponent)
+                      + 0.7152 * linearised(srgb.greenComponent)
+                      + 0.0722 * linearised(srgb.blueComponent)
+        // 0.179 is where black and white swap places in the WCAG contrast-ratio formula.
+        return luminance > 0.179 ? .black : .white
+        #else
+        return .white
+        #endif
+    }
 }

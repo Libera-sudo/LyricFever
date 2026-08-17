@@ -32,6 +32,7 @@ public struct SmallMenubarButtonStyle: ButtonStyle {
                                 .fontWeight(.black)
                         }
                     }
+                    .foregroundStyle(buttonState.foregroundStyle)
                     if disabled {
                         Capsule()
                             .fill(Color.white)
