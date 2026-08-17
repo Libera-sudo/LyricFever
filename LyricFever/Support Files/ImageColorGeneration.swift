@@ -6,6 +6,10 @@
 //
 
 import AppKit
+// dominantColors(with:algorithm:) below comes from ColorKit. This file never imported it and
+// still compiled, because KaraokeView did and same-target imports can leak between files --
+// removing that view broke the build here. Importing it where it is actually used.
+import ColorKit
 
 
 #if os(macOS)

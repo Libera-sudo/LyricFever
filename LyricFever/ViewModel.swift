@@ -135,34 +135,14 @@ import MediaRemoteAdapter
     var userDefaultStorage = UserDefaultStorage()
     
     #if os(macOS)
-    // Karaoke Font
-    var karaokeFont: NSFont
-    
     // nil to deal with previously saved songs that don't have lang saved with them
     // or for LRCLIB
     var currentBackground: Color? = nil
-    
-    var animatedDisplay: Bool {
-        get {
-            displayKaraoke
-        }
-        set {
 
-        }
-    }
-    
     var canDisplayLyrics: Bool {
         showLyrics && !lyricsIsEmptyPostLoad
     }
 
-    var displayKaraoke: Bool {
-        get {
-            showLyrics && isPlaying && userDefaultStorage.karaoke && !karaokeModeHovering && (currentlyPlayingLyricsIndex != nil)
-        }
-        set {
-            
-        }
-    }
     var currentlyPlayingAppleMusicPersistentID: String? = nil
     #endif
     
@@ -229,12 +209,6 @@ import MediaRemoteAdapter
     var lyricsIsEmptyPostLoad: Bool = true
     
     #if os(macOS)
-    // UI element used to hide if karaokeModeHoveringSetting is true
-    var karaokeModeHovering: Bool = false
-    
-    #endif
-    
-    #if os(macOS)
     var currentPlayer: PlayerType {
         get {
             if self.userDefaultStorage.spotifyOrAppleMusic {
@@ -281,18 +255,6 @@ import MediaRemoteAdapter
         systemLocale = Locale.preferredLocale()
         systemLocaleString = Locale.preferredLocaleString() ?? ""
         
-        #if os(macOS)
-        // Generate user-saved font and load it
-        let karaokeFontSize: Double = UserDefaults.standard.double(forKey: "karaokeFontSize")
-        let karaokeFontName: String? = UserDefaults.standard.string(forKey: "karaokeFontName")
-        if let karaokeFontName, karaokeFontSize != 0, let ourKaraokeFont = NSFont(name: karaokeFontName, size: karaokeFontSize) {
-            karaokeFont = ourKaraokeFont
-        } else {
-            karaokeFont = NSFont.boldSystemFont(ofSize: 30)
-        }
-        #endif
-        
-        
         // Load our CoreData container for Lyrics
         coreDataContainer = NSPersistentContainer(name: "Lyrics")
         
@@ -334,9 +296,6 @@ import MediaRemoteAdapter
         
         isPlaying = currentPlayerInstance.isPlaying
         userDefaultStorage.hasOnboarded = currentPlayerInstance.isAuthorized
-        KeyboardShortcuts.onKeyUp(for: .init("karaoke")) { [self] in
-            userDefaultStorage.karaoke.toggle()
-        }
         KeyboardShortcuts.onKeyUp(for: .init("lyrics")) { [self] in
             showLyrics.toggle()
         }
@@ -592,12 +551,6 @@ import MediaRemoteAdapter
     }
     
     #if os(macOS)
-    func saveKaraokeFontOnTermination() {
-        // This code will be executed just before the app terminates
-     UserDefaults.standard.set(karaokeFont.fontName, forKey: "karaokeFontName")
-     UserDefaults.standard.set(Double(karaokeFont.pointSize), forKey: "karaokeFontSize")
-    }
-    
     func appleMusicPlaybackDidChange(_ notification: Notification) {
         guard currentPlayer == .appleMusic else {
             return

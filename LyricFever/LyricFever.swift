@@ -87,11 +87,6 @@ struct LyricFever: App {
             .onChange(of: viewmodel.showLyrics) {
                 viewmodel.toggleLyrics()
             }
-            .floatingPanel(isPresented: $viewmodel.displayKaraoke) {
-                KaraokeView()
-                    .animation(.easeIn(duration: 0.2))
-                    .environment(viewmodel)
-            }
             .onAppear {
                 viewmodel.onAppear(openWindow)
             }
@@ -103,9 +98,6 @@ struct LyricFever: App {
             }
             .translationTask(viewmodel.translationSessionConfig) { session in
                 await viewmodel.translationTask(session)
-            }
-            .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
-                viewmodel.saveKaraokeFontOnTermination()
             }
             .onChange(of: viewmodel.translationSourceLanguage) {
                 // Goes through startTranslation() rather than setting the config directly:

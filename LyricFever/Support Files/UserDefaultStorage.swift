@@ -36,18 +36,7 @@ class UserDefaultStorage {
     @ObservationIgnored var hasMigrated: Bool
     
     // User setting: use album art color or user-set currentBackground
-    @ObservableUserDefault(.init(key: "karaoke", defaultValue: true, store: .standard))
-    @ObservationIgnored var karaoke: Bool
-//    var karaokeUseAlbumColor: Bool = true
-    @ObservableUserDefault(.init(key: "karaokeShowMultilingual", defaultValue: true, store: .standard))
-    @ObservationIgnored var karaokeShowMultilingual: Bool
-    @ObservableUserDefault(.init(key: "karaokeTransparency", defaultValue: 50, store: .standard))
-    @ObservationIgnored var karaokeTransparency: Double
-//    var fixedKaraokeColorHex: String = "#2D3CCC"
     
-    // User setting: hide karaoke on hover
-    @ObservableUserDefault(.init(key: "karaokeModeHoveringSetting", defaultValue: false, store: .standard))
-    @ObservationIgnored var karaokeModeHoveringSetting: Bool
     #endif
 
 //    @DefaultsKey(userDefaultsKey: "spDcCookie")

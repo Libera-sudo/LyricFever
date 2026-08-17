@@ -221,25 +221,6 @@ struct MenubarWindowView: View {
                     currentHoveredItem = .none
                 }
             }
-            MenubarButton(buttonText: "", imageText: "dock.rectangle", buttonState: displayKaraoke) {
-                viewmodel.userDefaultStorage.karaoke.toggle()
-            }
-            .onHover { isHovering in
-                if isHovering {
-                    switch displayKaraoke {
-                        case .enabled:
-                            currentHoveredItem = .disableKaraoke
-                        case .disabled:
-                            currentHoveredItem = .unavailableKaraoke
-                        case .clickable:
-                            currentHoveredItem = .enableKaraoke
-                        default:
-                            currentHoveredItem = .none
-                    }
-                } else {
-                    currentHoveredItem = .none
-                }
-            }
         }
     }
 
@@ -249,23 +230,6 @@ struct MenubarWindowView: View {
         Text("TODO")
     }
     
-    
-    var displayKaraoke: ButtonState {
-        guard viewmodel.userDefaultStorage.hasOnboarded else {
-            return .disabled
-        }
-        guard viewmodel.showLyrics else {
-            return .disabled
-        }
-        guard !viewmodel.lyricsIsEmptyPostLoad else {
-            return .disabled
-        }
-        if viewmodel.userDefaultStorage.karaoke {
-            return .enabled
-        } else {
-            return .clickable
-        }
-    }
     
     var refreshState: ButtonState {
         guard viewmodel.userDefaultStorage.hasOnboarded else {
@@ -442,7 +406,7 @@ struct MenubarWindowView: View {
         Toggle("Show Song Details in Menubar", isOn: $viewmodel.userDefaultStorage.showSongDetailsInMenubar)
         Divider()
         streamingDelayView
-        Button("Settings (New Karaoke Settings!)") {
+        Button("Settings") {
             openWindow(id: "onboarding")
             NSApplication.shared.activate(ignoringOtherApps: true)
             // send notification to check auth

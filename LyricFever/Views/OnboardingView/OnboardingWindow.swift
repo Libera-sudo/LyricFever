@@ -20,11 +20,6 @@ struct OnboardingWindow: View {
                 .tabItem {
                     Label("Main Settings", systemImage: "person.crop.circle")
                 }
-            KaraokeSettingsView()
-                .padding(.horizontal, 100)
-                 .tabItem {
-                     Label("Karaoke Window", systemImage: "person.crop.circle")
-                 }
             GlobalKeyboardShortcutsView()
                 .padding(.horizontal, 100)
                  .tabItem {

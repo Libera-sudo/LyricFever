@@ -13,7 +13,6 @@
 		8F1198742E72B9C60011A962 /* GlobalKeyboardShortcutsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F1198732E72B9C50011A962 /* GlobalKeyboardShortcutsView.swift */; };
 		8F1979952DA72D49008C113D /* IPADic in Frameworks */ = {isa = PBXBuildFile; productRef = 8F1979942DA72D49008C113D /* IPADic */; };
 		8F1979972DA72D49008C113D /* Mecab-Swift in Frameworks */ = {isa = PBXBuildFile; productRef = 8F1979962DA72D49008C113D /* Mecab-Swift */; };
-		8F28BFD42D578456002E2CE6 /* KaraokeSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F28BFD32D578456002E2CE6 /* KaraokeSettings.swift */; };
 		8F28FDC22AA25D2700439D8D /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 8F28FDC12AA25D2700439D8D /* Sparkle */; };
 		8F2922C02E94DE0700B286FC /* MediaRemoteAdapter in Frameworks */ = {isa = PBXBuildFile; productRef = 8F2922BF2E94DE0700B286FC /* MediaRemoteAdapter */; };
 		8F2922C12E94DEFF00B286FC /* MediaRemoteAdapter in Embed Frameworks */ = {isa = PBXBuildFile; productRef = 8F2922BF2E94DE0700B286FC /* MediaRemoteAdapter */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
@@ -54,7 +53,6 @@
 /* Begin PBXFileReference section */
 		8F0D66DB2E99CC5D00976881 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		8F1198732E72B9C50011A962 /* GlobalKeyboardShortcutsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlobalKeyboardShortcutsView.swift; sourceTree = "<group>"; };
-		8F28BFD32D578456002E2CE6 /* KaraokeSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KaraokeSettings.swift; sourceTree = "<group>"; };
 		8F6BD2962A8A6278008BBF88 /* amplitudeKey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = amplitudeKey.swift; sourceTree = "<group>"; };
 		8F6BD2982A8A6B7D008BBF88 /* ViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewModel.swift; sourceTree = "<group>"; };
 		8FA436AD2BC49D480072016C /* newPermissionMac.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = newPermissionMac.gif; sourceTree = "<group>"; };
@@ -152,7 +150,6 @@
 				8F4D20712DFFAEB0004A12CA /* LyricProvider */,
 				8FC8E9482A704EEB00F69915 /* LyricFever.swift */,
 				8FEF70F62D8B5CE40069AC01 /* Update22Window.swift */,
-				8F28BFD32D578456002E2CE6 /* KaraokeSettings.swift */,
 				8F1198732E72B9C50011A962 /* GlobalKeyboardShortcutsView.swift */,
 				8F6BD2982A8A6B7D008BBF88 /* ViewModel.swift */,
 				8F6BD2962A8A6278008BBF88 /* amplitudeKey.swift */,
@@ -281,7 +278,6 @@
 			files = (
 				8F6BD2972A8A6278008BBF88 /* amplitudeKey.swift in Sources */,
 				8F4F49522A7EC32D00097888 /* (null) in Sources */,
-				8F28BFD42D578456002E2CE6 /* KaraokeSettings.swift in Sources */,
 				8FEF70F72D8B5CE40069AC01 /* Update22Window.swift in Sources */,
 				8F6BD2992A8A6B7D008BBF88 /* ViewModel.swift in Sources */,
 				8FC8E9492A704EEB00F69915 /* LyricFever.swift in Sources */,
