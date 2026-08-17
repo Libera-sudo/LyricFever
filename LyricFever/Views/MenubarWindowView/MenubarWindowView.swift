@@ -17,7 +17,33 @@ struct MenubarWindowView: View {
     @Environment(\.colorScheme) var colorScheme
     @State var currentHoveredItem = MenubarButtonHighlight.none
     @State var supportedLanguages: [Locale.Language] = []
-    
+
+    /// Which panel page is showing.
+    ///
+    /// Settings live on pages inside the panel rather than in a Menu or a Picker. Under
+    /// `.menuBarExtraStyle(.window)` the panel is an ordinary window that closes as soon as it
+    /// loses focus, and any popped-up menu renders outside it -- so moving the mouse onto the
+    /// menu dismissed the panel and took the menu with it. Nothing here pops out of the panel.
+    enum Page: Equatable {
+        case main
+        case translationSettings
+        case languageChoice(LanguageChoice)
+    }
+
+    enum LanguageChoice: Equatable {
+        case sourceForThisSong
+        case targetForAllSongs
+
+        var title: String {
+            switch self {
+                case .sourceForThisSong: "Source Language"
+                case .targetForAllSongs: "Target Language"
+            }
+        }
+    }
+
+    @State var page: Page = .main
+
     @ViewBuilder
     var profilePicViewHeaderView: some View {
         ZStack {
@@ -217,88 +243,6 @@ struct MenubarWindowView: View {
         }
     }
 
-    @ViewBuilder
-    var translationAndRomanizationView: some View {
-        @Bindable var viewmodel = viewmodel
-        Section("Translation Options") {
-            if viewmodel.userDefaultStorage.translate {
-                Text(!viewmodel.translatedLyric.isEmpty ? "Translated Lyrics 😃" : "No Translation ☹️")
-                if viewmodel.translatedLyric.isEmpty {
-                    Button("Translation Help") {
-                        openURL(URL(string: "https://aviwadhwa.com/TranslationHelp")!)
-                    }
-                }
-            }
-            
-            Toggle("Translate To \(viewmodel.userLocaleLanguageString)", isOn: $viewmodel.userDefaultStorage.translate)
-            .disabled(!viewmodel.userDefaultStorage.hasOnboarded)
-            Divider()
-        }
-        let translationSourceLanguagePickerBinding = Binding<String?> (
-           get: {
-               return viewmodel.translationSourceLanguage?.maximalIdentifier
-           },
-           set: {
-               if let localeIdentifier = $0 {
-                   viewmodel.translationSourceLanguage = Locale.Language(identifier: localeIdentifier)
-               } else {
-                   viewmodel.translationSourceLanguage = nil
-               }
-               guard let trackID = viewmodel.currentlyPlaying else {
-                   print("Translationg: ignoring source language change: nil currentlyPlaying")
-                   return
-               }
-               guard let translationSourceLanguage = viewmodel.translationSourceLanguage else {
-                   print("Translation: source language change: nil source language, deleting existing pair")
-                   viewmodel.deleteSongLocalePairing(trackID: trackID)
-                   return
-               }
-               let localeIdentifier = translationSourceLanguage.maximalIdentifier
-//               guard let localeIdentifier = translationSourceLanguage.maximalIdentifier else {
-//                   print("Translation: ignoring source language change: nil locale identifier")
-//                   return
-//               }
-               print("Translation: Source language changed. Saving new pair (\(trackID),\(localeIdentifier))  to coredata")
-               let newSongToLocaleMapping = SongToLocale(context: viewmodel.coreDataContainer.viewContext)
-               newSongToLocaleMapping.id = trackID
-               newSongToLocaleMapping.locale = localeIdentifier
-               do {
-                   try viewmodel.coreDataContainer.viewContext.save()
-                   print("Translation: Successfully saved locale \(String(describing: newSongToLocaleMapping.locale)) for trackID \(trackID)")
-               } catch {
-                   print("Translation: Couldn't save locale mapping to CoreData: \(error)")
-               }
-           }
-       )
-        Section("Translation Settings for This Song") {
-            Picker("Source Language", selection: translationSourceLanguagePickerBinding) {
-                Text("Auto").tag(nil as String?)
-                ForEach(supportedLanguages, id: \.maximalIdentifier) { language in
-                    Text(Locale.current.localizedString(forIdentifier: language.minimalIdentifier) ?? language.maximalIdentifier).tag(language.maximalIdentifier)
-                }
-            }
-        }
-//        .onChange(of: viewmodel.translationSourceLanguage) {
-//        }
-        Section("Translation Settings for All Songs") {
-            Picker("Target Language", selection: $viewmodel.userDefaultStorage.translationTargetLanguage) {
-                Text("System (\(viewmodel.systemLocaleString))").tag(nil as Locale.Language?)
-                ForEach(supportedLanguages, id: \.maximalIdentifier) { language in
-                    Text(Locale.current.localizedString(forIdentifier: language.minimalIdentifier) ?? language.maximalIdentifier).tag(language)
-                }
-            }
-        }
-        Section("Transliteration Options") {
-            Toggle("Romanize", isOn: $viewmodel.userDefaultStorage.romanize)
-//            Toggle("Romanize Song Details", isOn: $viewmodel.userDefaultStorage.romanizeMetadata)
-//                .disabled(!viewmodel.userDefaultStorage.romanize)
-            Picker("Chinese Conversion", selection: $viewmodel.userDefaultStorage.chinesePreference) {
-                ForEach(ChineseConversion.allCases) { conversionCase in
-                    Text(conversionCase.description).tag(conversionCase.rawValue)
-                }
-            }
-        }
-    }
     
     @ViewBuilder
     var spotifyConnectDelayPicker: some View {
@@ -415,13 +359,10 @@ struct MenubarWindowView: View {
                     currentHoveredItem = .none
                 }
             }
-            Menu {
-                translationAndRomanizationView
-            } label: {
-               
+            SmallMenubarButton(buttonText: "", imageText: "translate", buttonState: translationState) {
+                page = .translationSettings
             }
             .disabled(translationState == .disabled)
-            .buttonStyle(SmallMenubarButtonStyle(imageText: "translate", buttonState: translationState))
             .onHover { isHovering in
                 if isHovering {
                     switch translationState {
@@ -680,7 +621,7 @@ struct MenubarWindowView: View {
         .tint(.secondary)
     }
     
-    var body: some View {
+    var mainPage: some View {
         VStack {
             headerView
             Divider()
@@ -699,6 +640,177 @@ struct MenubarWindowView: View {
             }
             Divider()
             systemControlView
+        }
+    }
+
+    func pageHeader(_ title: String, back: Page) -> some View {
+        HStack(spacing: 6) {
+            Button {
+                page = back
+            } label: {
+                Image(systemName: "chevron.left").bold()
+            }
+            .buttonStyle(.borderless)
+            Text(title).font(.headline)
+            Spacer()
+        }
+    }
+
+    /// A row that applies a value and shows whether it is the one in effect. Deliberately not a
+    /// Picker: a Picker pops its list outside the panel, and the panel closes before the list
+    /// can be clicked.
+    func choiceRow(_ label: String, selected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack {
+                Text(label).lineLimit(1)
+                Spacer()
+                if selected {
+                    Image(systemName: "checkmark").bold()
+                }
+            }
+            .contentShape(.rect)
+        }
+        .buttonStyle(.borderless)
+    }
+
+    /// A row that leads to another page, showing the value currently in effect.
+    func disclosureRow(_ label: String, value: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack {
+                Text(label)
+                Spacer()
+                Text(value).foregroundStyle(.secondary).lineLimit(1)
+                Image(systemName: "chevron.right").foregroundStyle(.secondary)
+            }
+            .contentShape(.rect)
+        }
+        .buttonStyle(.borderless)
+    }
+
+    func languageLabel(_ language: Locale.Language) -> String {
+        Locale.current.localizedString(forIdentifier: language.minimalIdentifier) ?? language.maximalIdentifier
+    }
+
+    var sourceLanguageLabel: String {
+        guard let source = viewmodel.translationSourceLanguage else { return "Auto" }
+        return languageLabel(source)
+    }
+
+    /// Records the per-song source language override. Mirrors what the old picker binding did:
+    /// clearing it deletes the stored pairing, setting it saves one.
+    func setSourceLanguage(_ language: Locale.Language?) {
+        viewmodel.translationSourceLanguage = language
+        guard let trackID = viewmodel.currentlyPlaying else {
+            print("Translation: ignoring source language change: nil currentlyPlaying")
+            return
+        }
+        guard let language else {
+            print("Translation: source language cleared, deleting existing pair")
+            viewmodel.deleteSongLocalePairing(trackID: trackID)
+            return
+        }
+        let localeIdentifier = language.maximalIdentifier
+        print("Translation: Source language changed. Saving new pair (\(trackID),\(localeIdentifier)) to coredata")
+        let newSongToLocaleMapping = SongToLocale(context: viewmodel.coreDataContainer.viewContext)
+        newSongToLocaleMapping.id = trackID
+        newSongToLocaleMapping.locale = localeIdentifier
+        do {
+            try viewmodel.coreDataContainer.viewContext.save()
+            print("Translation: Successfully saved locale \(localeIdentifier) for trackID \(trackID)")
+        } catch {
+            print("Translation: Couldn't save locale mapping to CoreData: \(error)")
+        }
+    }
+
+    @ViewBuilder
+    var translationSettingsPage: some View {
+        @Bindable var viewmodel = viewmodel
+        VStack(alignment: .leading, spacing: 8) {
+            pageHeader("Translation", back: .main)
+            Divider()
+            Toggle("Translate to \(viewmodel.userLocaleLanguageString)", isOn: $viewmodel.userDefaultStorage.translate)
+                .disabled(!viewmodel.userDefaultStorage.hasOnboarded)
+            if viewmodel.userDefaultStorage.translate {
+                Text(!viewmodel.translatedLyric.isEmpty ? "Translated Lyrics 😃" : "No Translation ☹️")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                if viewmodel.translatedLyric.isEmpty {
+                    Button("Translation Help") {
+                        openURL(URL(string: "https://aviwadhwa.com/TranslationHelp")!)
+                    }
+                    .buttonStyle(.borderless)
+                    .font(.caption)
+                }
+            }
+            disclosureRow("Source (this song)", value: sourceLanguageLabel) {
+                page = .languageChoice(.sourceForThisSong)
+            }
+            disclosureRow("Target (all songs)", value: viewmodel.userLocaleLanguageString) {
+                page = .languageChoice(.targetForAllSongs)
+            }
+            Divider()
+            Toggle("Romanize", isOn: $viewmodel.userDefaultStorage.romanize)
+            Text("Chinese Conversion")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            ForEach(ChineseConversion.allCases) { conversion in
+                choiceRow(conversion.description,
+                          selected: viewmodel.userDefaultStorage.chinesePreference == conversion.rawValue) {
+                    viewmodel.userDefaultStorage.chinesePreference = conversion.rawValue
+                }
+            }
+        }
+        .frame(width: 260)
+    }
+
+    @ViewBuilder
+    func languageChoicePage(_ choice: LanguageChoice) -> some View {
+        @Bindable var viewmodel = viewmodel
+        VStack(alignment: .leading, spacing: 6) {
+            pageHeader(choice.title, back: .translationSettings)
+            Divider()
+            ScrollView {
+                VStack(alignment: .leading, spacing: 2) {
+                    switch choice {
+                        case .sourceForThisSong:
+                            choiceRow("Auto", selected: viewmodel.translationSourceLanguage == nil) {
+                                setSourceLanguage(nil)
+                            }
+                            ForEach(supportedLanguages, id: \.maximalIdentifier) { language in
+                                choiceRow(languageLabel(language),
+                                          selected: viewmodel.translationSourceLanguage?.maximalIdentifier == language.maximalIdentifier) {
+                                    setSourceLanguage(language)
+                                }
+                            }
+                        case .targetForAllSongs:
+                            choiceRow("System (\(viewmodel.systemLocaleString))",
+                                      selected: viewmodel.userDefaultStorage.translationTargetLanguage == nil) {
+                                viewmodel.userDefaultStorage.translationTargetLanguage = nil
+                            }
+                            ForEach(supportedLanguages, id: \.maximalIdentifier) { language in
+                                choiceRow(languageLabel(language),
+                                          selected: viewmodel.userDefaultStorage.translationTargetLanguage == language) {
+                                    viewmodel.userDefaultStorage.translationTargetLanguage = language
+                                }
+                            }
+                    }
+                }
+            }
+            .frame(maxHeight: 280)
+        }
+        .frame(width: 260)
+    }
+
+    var body: some View {
+        Group {
+            switch page {
+                case .main:
+                    mainPage
+                case .translationSettings:
+                    translationSettingsPage
+                case .languageChoice(let choice):
+                    languageChoicePage(choice)
+            }
         }
         .foregroundStyle(.white)
         .padding(14)

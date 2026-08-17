@@ -151,6 +151,12 @@ enum LocalTranslationService {
 
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            // Report what actually came back. Throwing a bare case here makes every
+            // server-side refusal look identical from the log, which is useless when the
+            // endpoint answers fine to the same request made by hand.
+            let status = (response as? HTTPURLResponse).map { String($0.statusCode) } ?? "non-HTTP response"
+            let body = String(decoding: data.prefix(400), as: UTF8.self)
+            print("Local Translation: server returned \(status) — \(body)")
             throw LocalTranslationError.badResponse
         }
         guard
