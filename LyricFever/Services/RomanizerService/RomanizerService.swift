@@ -18,10 +18,27 @@ import Mecab_Swift
 import IPADic
 import OpenCC
 
+// Isolated to the main actor because every caller (ViewModel) already is, and
+// because the shared instances below are not safe to hand to arbitrary threads:
+// MeCab's tokenizer in particular is not threadsafe. Moving this work off the
+// main actor needs a per-context instance rather than a shared one.
+@MainActor
 class RomanizerService {
+    // Building a converter or tokenizer loads and compiles its dictionaries, so
+    // these are meant to be built once and reused. Building one per lyric line
+    // also leaked permanently: SwiftyOpenCC's ChineseConverter never frees its
+    // underlying CCConverterRef, so a single 50-line song stranded ~50 compiled
+    // dictionaries and grew the process by hundreds of MB per track.
+    private static let ipadicTokenizer: Tokenizer? = {
+        let ipadic = IPADic()
+        return try? Tokenizer(dictionary: ipadic)
+    }()
+    private static let simplifiedConverter = try? ChineseConverter(options: [.simplify])
+    private static let traditionalNeutralConverter = try? ChineseConverter(options: [.traditionalize])
+    private static let hongKongConverter = try? ChineseConverter(options: [.traditionalize, .hkStandard])
+    private static let taiwanConverter = try? ChineseConverter(options: [.traditionalize, .twStandard, .twIdiom])
+
     private static func generateJapaneseRomanizedString(_ string: String) -> String? {
-        let ipadic=IPADic()
-        let ipadicTokenizer = try? Tokenizer(dictionary: ipadic)
         guard let romajiTokens = ipadicTokenizer?.tokenize(text: string, transliteration: .romaji) else {
             return nil
         }
@@ -49,42 +66,34 @@ class RomanizerService {
 
 
     static func generateMainlandTransliteration(_ lyric: LyricLine) -> String? {
-        do {
-            let converter = try ChineseConverter(options: [.simplify])
-            return converter.convert(lyric.words)
-        } catch {
-            print("RomanizerService: MainlandTransliteration error: \(error)")
+        guard let converter = simplifiedConverter else {
+            print("RomanizerService: MainlandTransliteration error: converter unavailable")
             return nil
         }
+        return converter.convert(lyric.words)
     }
     
     static func generateTraditionalNeutralTransliteration(_ lyric: LyricLine) -> String? {
-        do {
-            let converter = try ChineseConverter(options: [.traditionalize])
-            return converter.convert(lyric.words)
-        } catch {
-            print("RomanizerService: MainlandTransliteration error: \(error)")
+        guard let converter = traditionalNeutralConverter else {
+            print("RomanizerService: TraditionalNeutralTransliteration error: converter unavailable")
             return nil
         }
+        return converter.convert(lyric.words)
     }
     
     static func generateHongKongTransliteration(_ lyric: LyricLine) -> String? {
-        do {
-            let converter = try ChineseConverter(options: [.traditionalize, .hkStandard])
-            return converter.convert(lyric.words)
-        } catch {
-            print("RomanizerService: HongKongTransliteration error: \(error)")
+        guard let converter = hongKongConverter else {
+            print("RomanizerService: HongKongTransliteration error: converter unavailable")
             return nil
         }
+        return converter.convert(lyric.words)
     }
     
     static func generateTaiwanTransliteration(_ lyric: LyricLine) -> String? {
-        do {
-            let converter = try ChineseConverter(options: [.traditionalize, .twStandard, .twIdiom])
-            return converter.convert(lyric.words)
-        } catch {
-            print("RomanizerService: TaiwanTransliteration error: \(error)")
+        guard let converter = taiwanConverter else {
+            print("RomanizerService: TaiwanTransliteration error: converter unavailable")
             return nil
         }
+        return converter.convert(lyric.words)
     }
 }
