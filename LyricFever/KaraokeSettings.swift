@@ -52,11 +52,10 @@ struct KaraokeSettingsView: View {
                 ColorPicker("Set a background color", selection: colorBinding, supportsOpacity: false)
             }
             Text("Opacity Level: \(Int(karaokeTransparency))%")
-            CompactSlider(value: $karaokeTransparency, in: 1...100, step: 5) {
-                Text("Opacity Level:")
-                Spacer()
-                Text("\(Int(karaokeTransparency))%")
-            }
+            // CompactSlider 2.x dropped the trailing content closure that used to
+            // overlay a label inside the track; the line above already shows the
+            // same label and value, so nothing is lost by letting it go.
+            CompactSlider(value: $karaokeTransparency, in: 1...100, step: 5)
             .frame(width: 300, height: 24)
             .padding(.bottom, 20)
             
