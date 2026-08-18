@@ -24,13 +24,7 @@ protocol Player {
     var isPlaying: Bool { get }
     var isRunning: Bool { get }
     
-    // additional menubar functions
-    var volume: Int { get }
-    
-    // playback and volume controls, driven from the menubar window
-    func decreaseVolume()
-    func increaseVolume()
-    func setVolume(to newVolume: Double)
+    // playback controls, driven from the menubar window
     func togglePlayback()
     func rewind()
     func forward()

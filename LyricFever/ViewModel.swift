@@ -35,7 +35,6 @@ import MediaRemoteAdapter
 
     var currentlyPlaying: String?
     
-    var currentVolume: Int = 0
     var isStopped = false
     
     var artworkImage: NSImage?

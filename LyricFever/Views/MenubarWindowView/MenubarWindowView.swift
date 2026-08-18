@@ -548,43 +548,6 @@ struct MenubarWindowView: View {
         .tint(.secondary)
     }
     
-    var volumeBinding: Binding<Double> {
-        Binding(
-            get: { Double(viewmodel.currentVolume) },
-            set: { newValue in
-                viewmodel.currentPlayerInstance.setVolume(to: newValue)
-                viewmodel.currentVolume = Int(newValue)
-            }
-        )
-    }
-    
-    @ViewBuilder
-    var volumeSlider: some View {
-        @Bindable var viewmodel = viewmodel
-        HStack {
-            Image(systemName: "speaker.wave.3", variableValue: Double(viewmodel.currentVolume)/100)
-                .frame(width: 30)
-            if #available(macOS 26.0, *) {
-                Slider(value: volumeBinding, in: 0...100) {
-                    Text("Volume")
-                } ticks: {
-                    
-                }
-                .labelsHidden()
-                .frame(width: 160)
-            } else {
-                Slider(value: volumeBinding, in: 0...100) {
-                    Text("Volume")
-                }
-                .labelsHidden()
-                .frame(width: 160)
-            }
-            Text("\(viewmodel.currentVolume)")
-                .frame(width: 23)
-        }
-        .tint(.secondary)
-    }
-    
     var mainPage: some View {
         VStack {
             headerView
@@ -594,8 +557,6 @@ struct MenubarWindowView: View {
             viewSelector
             Divider()
             menubarSizeSlider
-                .environment(\.colorScheme, .dark)
-            volumeSlider
                 .environment(\.colorScheme, .dark)
             if viewmodel.spotifyConnectDelay {
                 Divider()
@@ -784,11 +745,6 @@ struct MenubarWindowView: View {
                 .opacity(0.6)
                 .animation(.smooth, value: viewmodel.currentBackground)
         )
-        .onAppear {
-            if !viewmodel.isStopped {
-                viewmodel.currentVolume = viewmodel.currentPlayerInstance.volume
-            }
-        }
         .task {
             let languages = await Task.detached {
                 await LanguageAvailability().supportedLanguages
