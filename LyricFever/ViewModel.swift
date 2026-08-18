@@ -185,15 +185,26 @@ import MediaRemoteAdapter
     let systemLocaleString: String
     var translationSourceLanguage: Locale.Language?
 //    var translationTargetLanguage: Locale.Language?
+    /// The user's chosen translation target, or nil to follow the system.
+    var translationTargetLanguage: Locale.Language? {
+        get {
+            guard let identifier = userDefaultStorage.translationTargetLanguageIdentifier else { return nil }
+            return Locale.Language(identifier: identifier)
+        }
+        set {
+            userDefaultStorage.translationTargetLanguageIdentifier = newValue?.maximalIdentifier
+        }
+    }
+
     var userLocaleLanguage: Locale.Language {
-        if let translationTargetLanguage = userDefaultStorage.translationTargetLanguage {
+        if let translationTargetLanguage {
             return translationTargetLanguage
         } else {
             return systemLocale.language
         }
     }
     var userLocaleLanguageString: String {
-        if let translationTargetLanguage = userDefaultStorage.translationTargetLanguage, let translationTargetLanguageString = Locale.current.localizedString(forIdentifier: translationTargetLanguage.minimalIdentifier) {
+        if let translationTargetLanguage, let translationTargetLanguageString = Locale.current.localizedString(forIdentifier: translationTargetLanguage.minimalIdentifier) {
             return translationTargetLanguageString
         } else {
             return systemLocaleString

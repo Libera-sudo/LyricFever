@@ -16,8 +16,12 @@ import ObservableUserDefault
 class UserDefaultStorage {
     @ObservableUserDefault(.init(key: "translate", defaultValue: false, store: .standard))
     @ObservationIgnored var translate: Bool
-    @ObservableUserDefault(.init(key: "translationTargetLanguage", store: .standard))
-    @ObservationIgnored var translationTargetLanguage: Locale.Language?
+    // Stored as an identifier string rather than a Locale.Language. UserDefaults only
+    // accepts property-list types, and the macro hands the value over verbatim -- writing a
+    // Locale.Language was silently dropped and always read back nil, so this setting could
+    // never be saved. ViewModel.translationTargetLanguage wraps this back into a Language.
+    @ObservableUserDefault(.init(key: "translationTargetLanguageIdentifier", store: .standard))
+    @ObservationIgnored var translationTargetLanguageIdentifier: String?
 //    var furigana = false
     #if os(macOS)
     @ObservableUserDefault(.init(key: "showSongDetailsInMenubar", defaultValue: false, store: .standard))

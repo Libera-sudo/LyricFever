@@ -601,10 +601,13 @@ struct MenubarWindowView: View {
             // glyphs themselves are clickable and most of the row is dead space. .plain keeps
             // the label's frame as the hit area; .borderless shrinks it to the content.
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.vertical, 4)
+            .padding(.vertical, 2)
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
+        .listRowInsets(EdgeInsets(top: 0, leading: 4, bottom: 0, trailing: 4))
+        .listRowSeparator(.hidden)
+        .listRowBackground(Color.clear)
     }
 
     /// A row that leads to another page, showing the value currently in effect.
@@ -700,42 +703,46 @@ struct MenubarWindowView: View {
     }
 
     @ViewBuilder
+    /// The scrollable language list.
+    ///
+    /// Uses List rather than ScrollView + VStack: a probe build showed the same Button firing
+    /// reliably outside a ScrollView and never inside one, so the ScrollView was swallowing the
+    /// clicks. List is backed by AppKit's own scrolling table, which routes them properly.
     func languageChoicePage(_ choice: LanguageChoice) -> some View {
-        @Bindable var viewmodel = viewmodel
-        VStack(alignment: .leading, spacing: 6) {
+        // Read the current value once instead of per row.
+        let currentTarget = viewmodel.translationTargetLanguage
+        let currentSource = viewmodel.translationSourceLanguage
+
+        return VStack(alignment: .leading, spacing: 6) {
             pageHeader(choice.title, back: .translationSettings)
             Divider()
-            ScrollView {
-                // Without this the stack hugs its widest label and every row is narrower
-                // than the panel, leaving the rest of each row unclickable.
-                VStack(alignment: .leading, spacing: 2) {
-                    switch choice {
-                        case .sourceForThisSong:
-                            choiceRow("Auto", selected: viewmodel.translationSourceLanguage == nil) {
-                                setSourceLanguage(nil)
+            List {
+                switch choice {
+                    case .sourceForThisSong:
+                        choiceRow("Auto", selected: currentSource == nil) {
+                            setSourceLanguage(nil)
+                        }
+                        ForEach(supportedLanguages, id: \.maximalIdentifier) { language in
+                            choiceRow(languageLabel(language),
+                                      selected: currentSource?.maximalIdentifier == language.maximalIdentifier) {
+                                setSourceLanguage(language)
                             }
-                            ForEach(supportedLanguages, id: \.maximalIdentifier) { language in
-                                choiceRow(languageLabel(language),
-                                          selected: viewmodel.translationSourceLanguage?.maximalIdentifier == language.maximalIdentifier) {
-                                    setSourceLanguage(language)
-                                }
+                        }
+                    case .targetForAllSongs:
+                        choiceRow("System (\(viewmodel.systemLocaleString))", selected: currentTarget == nil) {
+                            viewmodel.translationTargetLanguage = nil
+                        }
+                        ForEach(supportedLanguages, id: \.maximalIdentifier) { language in
+                            choiceRow(languageLabel(language),
+                                      selected: currentTarget?.maximalIdentifier == language.maximalIdentifier) {
+                                viewmodel.translationTargetLanguage = language
                             }
-                        case .targetForAllSongs:
-                            choiceRow("System (\(viewmodel.systemLocaleString))",
-                                      selected: viewmodel.userDefaultStorage.translationTargetLanguage == nil) {
-                                viewmodel.userDefaultStorage.translationTargetLanguage = nil
-                            }
-                            ForEach(supportedLanguages, id: \.maximalIdentifier) { language in
-                                choiceRow(languageLabel(language),
-                                          selected: viewmodel.userDefaultStorage.translationTargetLanguage == language) {
-                                    viewmodel.userDefaultStorage.translationTargetLanguage = language
-                                }
-                            }
-                    }
+                        }
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .frame(maxHeight: 280)
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .frame(height: 280)
         }
         .frame(width: 260)
     }
