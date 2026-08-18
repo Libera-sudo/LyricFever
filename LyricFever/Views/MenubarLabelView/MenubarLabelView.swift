@@ -47,13 +47,11 @@ struct MenubarLabelView: View {
     }
 
     var body: some View {
-        Group {
-            if let menuBarTitle {
-                Image(nsImage: Self.render(menuBarTitle, width: viewmodel.menubarLyricWidth))
-            } else {
-                Image(systemName: "music.note.list")
-            }
-        }
+        // Even the placeholder is drawn on the same canvas. It appears whenever there is no
+        // lyric to show -- paused, between lines, instrumental passages -- and letting it
+        // shrink the item back to icon width would reintroduce exactly the resize this whole
+        // approach exists to avoid.
+        Image(nsImage: Self.render(menuBarTitle, width: viewmodel.menubarLyricWidth))
     }
 
     /// Draws the lyric into a picture of a constant width instead of handing the menu bar a
@@ -74,25 +72,33 @@ struct MenubarLabelView: View {
     ///
     /// `isTemplate` hands colouring back to AppKit, so the lyric follows the menu bar the way
     /// the placeholder icon does, in light and dark alike.
-    static func render(_ text: String, width: CGFloat) -> NSImage {
+    static func render(_ text: String?, width: CGFloat) -> NSImage {
         let height: CGFloat = 18
         let width = max(width, 1)
-        let paragraph = NSMutableParagraphStyle()
-        paragraph.alignment = .right
-        paragraph.lineBreakMode = .byTruncatingTail
-        let attributes: [NSAttributedString.Key: Any] = [
-            .font: NSFont.menuBarFont(ofSize: 0),
-            .foregroundColor: NSColor.black,
-            .paragraphStyle: paragraph
-        ]
-        let line = text as NSString
-        let lineHeight = line.size(withAttributes: attributes).height
         let image = NSImage(size: NSSize(width: width, height: height))
         image.lockFocus()
-        line.draw(
-            in: NSRect(x: 0, y: (height - lineHeight) / 2, width: width, height: lineHeight),
-            withAttributes: attributes
-        )
+        if let text {
+            let paragraph = NSMutableParagraphStyle()
+            paragraph.alignment = .right
+            paragraph.lineBreakMode = .byTruncatingTail
+            let attributes: [NSAttributedString.Key: Any] = [
+                .font: NSFont.menuBarFont(ofSize: 0),
+                .foregroundColor: NSColor.black,
+                .paragraphStyle: paragraph
+            ]
+            let line = text as NSString
+            let lineHeight = line.size(withAttributes: attributes).height
+            line.draw(
+                in: NSRect(x: 0, y: (height - lineHeight) / 2, width: width, height: lineHeight),
+                withAttributes: attributes
+            )
+        } else if let glyph = NSImage(systemSymbolName: "music.note.list", accessibilityDescription: nil) {
+            // Right-aligned like the lyric, so the two never appear to shift when one replaces
+            // the other.
+            let size = glyph.size
+            glyph.draw(in: NSRect(x: width - size.width, y: (height - size.height) / 2,
+                                  width: size.width, height: size.height))
+        }
         image.unlockFocus()
         image.isTemplate = true
         return image
