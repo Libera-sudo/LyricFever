@@ -12,7 +12,6 @@ import CoreData
 import SwiftUI
 import MediaPlayer
 #if os(macOS)
-import WebKit
 import Translation
 import KeyboardShortcuts
 import MediaRemoteAdapter
@@ -166,8 +165,6 @@ import MediaRemoteAdapter
     // CoreData container (for saved lyrics)
     let coreDataContainer: NSPersistentContainer
     
-    var isHearted = false
-    
     // Async Tasks (Lyrics fetch, Apple Music -> Spotify ID fetch, Lyrics Updater)
     private var currentFetchTask: Task<[LyricLine], Error>?
     private var currentLyricsUpdaterTask: Task<Void,Error>?
@@ -239,16 +236,15 @@ import MediaRemoteAdapter
         currentPlayerInstance.isRunning
     }
     
-    var spotifyLyricProvider = SpotifyLyricProvider()
     var lRCLyricProvider = LRCLIBLyricProvider()
     var netEaseLyricProvider = NetEaseLyricProvider()
     #if os(macOS)
     var localFileUploadProvider = LocalFileUploadProvider()
     #endif
-    @ObservationIgnored lazy var allNetworkLyricProviders: [LyricProvider] = [spotifyLyricProvider, lRCLyricProvider, netEaseLyricProvider]
+    @ObservationIgnored lazy var allNetworkLyricProviders: [LyricProvider] = [lRCLyricProvider, netEaseLyricProvider]
     
     // custom order because LRCLIB is tweaking for the time being
-    @ObservationIgnored lazy var allNetworkLyricProvidersForSearch: [LyricProvider] = [spotifyLyricProvider, netEaseLyricProvider, lRCLyricProvider]
+    @ObservationIgnored lazy var allNetworkLyricProvidersForSearch: [LyricProvider] = [netEaseLyricProvider, lRCLyricProvider]
     
     var isFirstFetch = true
     
@@ -270,6 +266,8 @@ import MediaRemoteAdapter
         }
         #if os(macOS)
         migrateTimestampsIfNeeded(context: coreDataContainer.viewContext)
+        // Spotify login is gone, so its stored cookie should not linger.
+        UserDefaults.standard.removeObject(forKey: "spDcCookie")
         
         // onAppear()
         print("on appear running")
@@ -302,7 +300,7 @@ import MediaRemoteAdapter
     @MainActor
     func fetchAllNetworkLyrics() async -> NetworkFetchReturn {
         guard let currentlyPlaying, let currentlyPlayingName else {
-            return NetworkFetchReturn(lyrics: [], colorData: nil)
+            return NetworkFetchReturn(lyrics: [])
         }
         for networkLyricProvider in allNetworkLyricProviders {
             do {
@@ -314,9 +312,6 @@ import MediaRemoteAdapter
                     let _ = SongObject(from: lyrics.lyrics, with: coreDataContainer.viewContext, trackID: currentlyPlaying, trackName: currentlyPlayingName)
                     saveCoreData()
                     return lyrics
-                } else if networkLyricProvider is SpotifyLyricProvider {
-                    print("FetchAllNetworkLyrics: no lyrics from \(networkLyricProvider.providerName)")
-                    handleSpotifyNoLyricsFallback()
                 } else {
                     print("FetchAllNetworkLyrics: no lyrics from \(networkLyricProvider.providerName)")
                 }
@@ -324,7 +319,7 @@ import MediaRemoteAdapter
                 print("Caught exception on \(networkLyricProvider.providerName): \(error)")
             }
         }
-        return NetworkFetchReturn(lyrics: [], colorData: nil)
+        return NetworkFetchReturn(lyrics: [])
     }
     
     #if os(macOS)
@@ -356,20 +351,13 @@ import MediaRemoteAdapter
 //            startLyricUpdater()
 //        }
         // we call this in self.fetch
-//        callColorDataServiceOnLyricColorOrArtwork(colorData: finalLyrics.colorData)
+//        callColorDataServiceOnLyricColorOrArtwork()
     }
     
-    func callColorDataServiceOnLyricColorOrArtwork(colorData: Int32?) {
-        if currentPlayer == .appleMusic {
-            if let currentlyPlaying, let backgroundColor = artworkImage?.findWhiteTextLegibleMostSaturatedDominantColor() {
-                ColorDataService.saveColorToCoreData(trackID: currentlyPlaying, songColor: backgroundColor)
-                print("ViewModel Refresh Lyrics: New color \(backgroundColor) saved for track \(currentlyPlaying)")
-            }
-        } else {
-            if let currentlyPlaying, let backgroundColor = colorData {
-                ColorDataService.saveColorToCoreData(trackID: currentlyPlaying, songColor: backgroundColor)
-                print("ViewModel Refresh Lyrics: New color \(backgroundColor) saved for track \(currentlyPlaying)")
-            }
+    func callColorDataServiceOnLyricColorOrArtwork() {
+        if let currentlyPlaying, let backgroundColor = artworkImage?.findWhiteTextLegibleMostSaturatedDominantColor() {
+            ColorDataService.saveColorToCoreData(trackID: currentlyPlaying, songColor: backgroundColor)
+            print("ViewModel Refresh Lyrics: New color \(backgroundColor) saved for track \(currentlyPlaying)")
         }
     }
     
@@ -402,17 +390,6 @@ import MediaRemoteAdapter
                 userDefaultStorage.hasMigrated = true
             } catch {
                 print("Error migrating data: \(error)")
-            }
-        }
-    }
-    
-    // Runs once user has completed Spotify log-in. Attempt to extract cookie
-    func checkIfLoggedIn() {
-        WKWebsiteDataStore.default().httpCookieStore.getAllCookies { cookies in
-            if let temporaryCookie = cookies.first(where: {$0.name == "sp_dc"}) {
-                print("found the sp_dc cookie")
-                self.userDefaultStorage.cookie = temporaryCookie.value
-                NotificationCenter.default.post(name: Notification.Name("didLogIn"), object: nil)
             }
         }
     }
@@ -858,17 +835,6 @@ import MediaRemoteAdapter
         }
     }
     
-    func handleSpotifyNoLyricsFallback() {
-        // We know Spotify won’t give us a color for this track
-        guard let currentlyPlaying else { return }
-        
-        guard let colorInt = artworkImage?.findWhiteTextLegibleMostSaturatedDominantColor() else {
-            return
-        }
-        
-        ColorDataService.saveColorToCoreData(trackID: currentlyPlaying, songColor: colorInt)
-        currentBackground = intToRGB(colorInt)
-    }
     #endif
     
     func fetchLyrics(for trackID: String, _ trackName: String, checkCoreDataFirst: Bool) async throws -> [LyricLine] {
@@ -904,7 +870,7 @@ import MediaRemoteAdapter
             
             // verify non-stale trackID
             if initiatingTrackID == self.currentlyPlaying {
-                callColorDataServiceOnLyricColorOrArtwork(colorData: networkLyrics.colorData)
+                callColorDataServiceOnLyricColorOrArtwork()
             } else {
                 print("FetchLyrics: Skipping color save due to stale track (initiated: \(initiatingTrackID), current: \(self.currentlyPlaying ?? "nil")).")
                 throw FetchError.staleTrack
@@ -1087,7 +1053,7 @@ import MediaRemoteAdapter
         }
         let duration = self.duration
         let localLyrics = try await localFileUploadProvider.localFetch(for: currentlyPlaying, currentlyPlayingName)
-        let cleanLyrics = NetworkFetchReturn(lyrics: localLyrics, colorData: nil).processed(withSongName: currentlyPlayingName, duration: duration).lyrics
+        let cleanLyrics = NetworkFetchReturn(lyrics: localLyrics).processed(withSongName: currentlyPlayingName, duration: duration).lyrics
         if self.currentlyPlaying == currentlyPlaying {
             setNewLyricsColorTranslationRomanizationAndStartUpdater(with: cleanLyrics)
         }
@@ -1172,4 +1138,3 @@ extension ViewModel {
     }
 }
 #endif
-

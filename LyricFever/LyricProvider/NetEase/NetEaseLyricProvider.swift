@@ -53,7 +53,7 @@ class NetEaseLyricProvider: LyricProvider {
             let neteasesearch = try JSONDecoder().decode(NetEaseSearch.self, from: urlResponseAndData.0)
             print(neteasesearch)
             guard let neteaseResult = neteasesearch.result.songs.first, let neteaseArtist = neteaseResult.artists.first else {
-                return NetworkFetchReturn(lyrics: [], colorData: nil)
+                return NetworkFetchReturn(lyrics: [])
             }
             let neteaseId = neteaseResult.id
             let conditions = [
@@ -69,16 +69,16 @@ class NetEaseLyricProvider: LyricProvider {
             // I need at least 2 conditions to be met: track name, or album, or artist name, match 75% of the way
             if trueCount < 2 {
                 print("similarity conditions passed for NetEase: \(trueCount) is less than 2, therefore failing this NetEase search.")
-                return NetworkFetchReturn(lyrics: [], colorData: nil)
+                return NetworkFetchReturn(lyrics: [])
             }
             guard let lyricURL = Self.lyricURL(songID: neteaseId) else {
-                return NetworkFetchReturn(lyrics: [], colorData: nil)
+                return NetworkFetchReturn(lyrics: [])
             }
             let lyricRequest = URLRequest(url: lyricURL)
             let urlResponseAndDataLyrics = try await fakeSpotifyUserAgentSession.data(for: lyricRequest)
             let neteaseLyrics = try JSONDecoder().decode(NetEaseLyrics.self, from: urlResponseAndDataLyrics.0)
             guard let neteaselrc = neteaseLyrics.lrc, let neteaseLrcString = neteaselrc.lyric else {
-                return NetworkFetchReturn(lyrics: [], colorData: nil)
+                return NetworkFetchReturn(lyrics: [])
             }
             
             // Sanitize HTML entities and stray escapes before parsing
@@ -88,13 +88,14 @@ class NetEaseLyricProvider: LyricProvider {
             print(parser.lyrics)
             // NetEase incorrectly advertises lyrics for EVERY song when it only has the name, artist, composer at 0.0 *sigh*
             if parser.lyrics.last?.startTimeMS == 0.0 {
-                return NetworkFetchReturn(lyrics: [], colorData: nil)
+                return NetworkFetchReturn(lyrics: [])
             }
-            return NetworkFetchReturn(lyrics: parser.lyrics, colorData: nil)
+            return NetworkFetchReturn(lyrics: parser.lyrics)
         }
-        return NetworkFetchReturn(lyrics: [], colorData: nil)
+        return NetworkFetchReturn(lyrics: [])
     }
 }
+
 
 // MARK: - HTML entity unescape
 private func unescapeHTMLEntities(in text: String) -> String {
@@ -156,4 +157,3 @@ extension NetEaseLyricProvider {
         return results
     }
 }
-

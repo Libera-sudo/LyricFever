@@ -9,7 +9,6 @@ import SwiftUI
 import SDWebImage
 import ScriptingBridge
 import MusicKit
-import WebKit
 
 struct OnboardingWindow: View {
     @State var spotifyPermission: Bool = false

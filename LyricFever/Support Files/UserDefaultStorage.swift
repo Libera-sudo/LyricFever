@@ -43,10 +43,6 @@ class UserDefaultStorage {
     
     #endif
 
-//    @DefaultsKey(userDefaultsKey: "spDcCookie")
-    @ObservableUserDefault(.init(key: "spDcCookie", defaultValue: "", store: .standard))
-    @ObservationIgnored var cookie: String
-    
     #if os(macOS)
     // False: Spotify, True: Apple Music
     @ObservableUserDefault(.init(key: "spotifyOrAppleMusic", defaultValue: false, store: .standard))

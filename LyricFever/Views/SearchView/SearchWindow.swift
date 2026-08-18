@@ -62,7 +62,7 @@ struct SearchWindow: View {
                               .frame(width: 400)
                 Spacer()
                 Button {
-                    let cleanLyrics = NetworkFetchReturn(lyrics: selectedLyricLyric.lyrics, colorData: nil).processed(withSongName: trackName, duration: viewmodel.duration).lyrics
+                    let cleanLyrics = NetworkFetchReturn(lyrics: selectedLyricLyric.lyrics).processed(withSongName: trackName, duration: viewmodel.duration).lyrics
                     
                     if let currentIndex = viewmodel.currentlyPlayingLyricsIndex, currentIndex >= cleanLyrics.count {
                         // set currentindex to nil to prevent out of bounds index access with existing UI

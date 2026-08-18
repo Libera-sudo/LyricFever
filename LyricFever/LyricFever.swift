@@ -130,9 +130,6 @@ struct LyricFever: App {
             .onChange(of: viewmodel.userDefaultStorage.translate) {
                 viewmodel.openTranslationHelpOnFirstRun(openURL)
             }
-            .onChange(of: viewmodel.userDefaultStorage.cookie) {
-                viewmodel.spotifyLyricProvider.accessToken = nil
-            }
             .onChange(of: viewmodel.isPlaying) {
                 if viewmodel.isPlaying, viewmodel.showLyrics, viewmodel.userDefaultStorage.hasOnboarded {
                     if !viewmodel.currentlyPlayingLyrics.isEmpty  {

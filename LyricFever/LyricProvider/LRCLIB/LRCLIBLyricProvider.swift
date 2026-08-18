@@ -22,20 +22,20 @@ class LRCLIBLyricProvider: LyricProvider {
     func fetchNetworkLyrics(trackName: String, trackID: String, currentlyPlayingArtist: String?, currentAlbumName: String?) async throws -> NetworkFetchReturn {
         guard let currentlyPlayingArtist, let currentAlbumName else {
             print("artist or album missing")
-            return NetworkFetchReturn(lyrics: [], colorData: nil)
+            return NetworkFetchReturn(lyrics: [])
         }
         guard let url = makeComponents(path: "/api/get", items: [
             URLQueryItem(name: "artist_name", value: currentlyPlayingArtist),
             URLQueryItem(name: "track_name", value: trackName),
             URLQueryItem(name: "album_name", value: currentAlbumName)
         ]).url else {
-            return NetworkFetchReturn(lyrics: [], colorData: nil)
+            return NetworkFetchReturn(lyrics: [])
         }
         print("LRCLIB /api/get: \(url.absoluteString)")
         let req = URLRequest(url: url)
         let urlResponseAndData = try await LRCLIBUserAgentSession.data(for: req)
         let lrcLyrics = try JSONDecoder().decode(LRCLIBLyrics.self, from: urlResponseAndData.0)
-        return NetworkFetchReturn(lyrics: lrcLyrics.lyrics, colorData: nil)
+        return NetworkFetchReturn(lyrics: lrcLyrics.lyrics)
     }
     
     func fetchNetworkLyrics2(trackName: String, trackID: String, currentlyPlayingArtist: String?, currentAlbumName: String?) async throws -> NetworkFetchReturn {
@@ -48,9 +48,9 @@ class LRCLIBLyricProvider: LyricProvider {
             let urlResponseAndData = try await LRCLIBUserAgentSession.data(for: request)
             print(String(describing: urlResponseAndData.0))
             let lrcLyrics = try JSONDecoder().decode(LRCLIBLyrics.self, from: urlResponseAndData.0)
-            return NetworkFetchReturn(lyrics: lrcLyrics.lyrics, colorData: nil)
+            return NetworkFetchReturn(lyrics: lrcLyrics.lyrics)
         }
-        return NetworkFetchReturn(lyrics: [], colorData: nil)
+        return NetworkFetchReturn(lyrics: [])
     }
     
     func search(trackName: String, artistName: String) async throws -> [SongResult] {

@@ -23,10 +23,8 @@
 		8FA436AE2BC49D480072016C /* newPermissionMac.gif in Resources */ = {isa = PBXBuildFile; fileRef = 8FA436AD2BC49D480072016C /* newPermissionMac.gif */; };
 		8FA4E9782CE73DB900CEEF35 /* ColorKit in Frameworks */ = {isa = PBXBuildFile; productRef = 8FA4E9772CE73DB900CEEF35 /* ColorKit */; };
 		8FC8E9492A704EEB00F69915 /* LyricFever.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FC8E9482A704EEB00F69915 /* LyricFever.swift */; };
-		8FCFD1C32AE35DEA00B22023 /* spotifylogin.gif in Resources */ = {isa = PBXBuildFile; fileRef = 8FCFD1C22AE35DEA00B22023 /* spotifylogin.gif */; };
 		8FFA9F342AA1B3CB00BAEC5C /* SDWebImageSwiftUI in Frameworks */ = {isa = PBXBuildFile; productRef = 8FFA9F332AA1B3CB00BAEC5C /* SDWebImageSwiftUI */; };
 		8FFA9F382AA1B63500BAEC5C /* crossfade.gif in Resources */ = {isa = PBXBuildFile; fileRef = 8FFA9F362AA1B63500BAEC5C /* crossfade.gif */; };
-		8FFED07B2D8A26E700EA1510 /* SwiftOTP in Frameworks */ = {isa = PBXBuildFile; productRef = 8FFED07A2D8A26E700EA1510 /* SwiftOTP */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -50,7 +48,6 @@
 		8FA436AD2BC49D480072016C /* newPermissionMac.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = newPermissionMac.gif; sourceTree = "<group>"; };
 		8FC8E9452A704EEB00F69915 /* Lyric Fever.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Lyric Fever.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		8FC8E9482A704EEB00F69915 /* LyricFever.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LyricFever.swift; sourceTree = "<group>"; };
-		8FCFD1C22AE35DEA00B22023 /* spotifylogin.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = spotifylogin.gif; sourceTree = "<group>"; };
 		8FFA9F362AA1B63500BAEC5C /* crossfade.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = crossfade.gif; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -84,7 +81,6 @@
 				8F1198722E72B9840011A962 /* KeyboardShortcuts in Frameworks */,
 				8F1979952DA72D49008C113D /* IPADic in Frameworks */,
 				8F1979972DA72D49008C113D /* Mecab-Swift in Frameworks */,
-				8FFED07B2D8A26E700EA1510 /* SwiftOTP in Frameworks */,
 				8FA4E9782CE73DB900CEEF35 /* ColorKit in Frameworks */,
 				8F8196872D93CCDC00F03741 /* StringMetric in Frameworks */,
 				8FFA9F342AA1B3CB00BAEC5C /* SDWebImageSwiftUI in Frameworks */,
@@ -106,7 +102,6 @@
 		8FC8E93C2A704EEB00F69915 = {
 			isa = PBXGroup;
 			children = (
-				8FCFD1C22AE35DEA00B22023 /* spotifylogin.gif */,
 				8F0D66DB2E99CC5D00976881 /* Localizable.xcstrings */,
 				8FFA9F362AA1B63500BAEC5C /* crossfade.gif */,
 				8FA436AD2BC49D480072016C /* newPermissionMac.gif */,
@@ -171,7 +166,6 @@
 				8FFA9F332AA1B3CB00BAEC5C /* SDWebImageSwiftUI */,
 				8F89E1102C90DA4900F511EB /* LaunchAtLogin */,
 				8FA4E9772CE73DB900CEEF35 /* ColorKit */,
-				8FFED07A2D8A26E700EA1510 /* SwiftOTP */,
 				8F8196862D93CCDC00F03741 /* StringMetric */,
 				8F1979942DA72D49008C113D /* IPADic */,
 				8F1979962DA72D49008C113D /* Mecab-Swift */,
@@ -214,7 +208,6 @@
 				8FFA9F322AA1B3CB00BAEC5C /* XCRemoteSwiftPackageReference "SDWebImageSwiftUI" */,
 				8F89E10F2C90DA4900F511EB /* XCRemoteSwiftPackageReference "LaunchAtLogin-Modern" */,
 				8FA4E9762CE73DB900CEEF35 /* XCRemoteSwiftPackageReference "ColorKit-macOS" */,
-				8FFED0792D8A26E700EA1510 /* XCRemoteSwiftPackageReference "SwiftOTP" */,
 				8F8196852D93CCDC00F03741 /* XCRemoteSwiftPackageReference "StringMetric" */,
 				8F1979932DA72D49008C113D /* XCRemoteSwiftPackageReference "Mecab-Swift" */,
 				8F37323B2E6EC9C90075CDA7 /* XCRemoteSwiftPackageReference "SwiftyOpenCC" */,
@@ -238,7 +231,6 @@
 			files = (
 				8FA436AE2BC49D480072016C /* newPermissionMac.gif in Resources */,
 				8FFA9F382AA1B63500BAEC5C /* crossfade.gif in Resources */,
-				8FCFD1C32AE35DEA00B22023 /* spotifylogin.gif in Resources */,
 				8F0D66DC2E99CC5D00976881 /* Localizable.xcstrings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -558,14 +550,6 @@
 				kind = branch;
 			};
 		};
-		8FFED0792D8A26E700EA1510 /* XCRemoteSwiftPackageReference "SwiftOTP" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/lachlanbell/SwiftOTP";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 3.0.2;
-			};
-		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -618,11 +602,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 8FFA9F322AA1B3CB00BAEC5C /* XCRemoteSwiftPackageReference "SDWebImageSwiftUI" */;
 			productName = SDWebImageSwiftUI;
-		};
-		8FFED07A2D8A26E700EA1510 /* SwiftOTP */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 8FFED0792D8A26E700EA1510 /* XCRemoteSwiftPackageReference "SwiftOTP" */;
-			productName = SwiftOTP;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
