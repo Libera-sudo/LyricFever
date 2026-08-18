@@ -253,6 +253,48 @@ struct MenubarWindowView: View {
         }
     }
     
+    var truncationBinding: Binding<Double> {
+        Binding(
+            get: { Double(viewmodel.userDefaultStorage.truncationLength) },
+            set: { viewmodel.userDefaultStorage.truncationLength = Int(round($0)) }
+        )
+    }
+
+    /// Menubar text length, one character per step.
+    ///
+    /// The step is what the drag snaps to; the tick marks are a separate thing. Asking for
+    /// `step: 1` alone would draw all thirty-one of them and turn the track into a dotted
+    /// line, so on macOS 26 the `tick:` closure keeps the fine step and hands back a mark
+    /// only on multiples of ten. Older systems have no such split and fall back to a
+    /// continuous track -- the binding rounds, so the stored value is an Int either way.
+    ///
+    /// It claims the row's slack rather than a fixed width: the `...` menu has no set width
+    /// on macOS 26+, so a fixed slider plus spacers could push Quit off the row, and the
+    /// longest possible track is what makes a one-character step draggable at all.
+    @ViewBuilder
+    var truncationSlider: some View {
+        Group {
+            if #available(macOS 26.0, *) {
+                Slider(
+                    value: truncationBinding,
+                    in: 30...60,
+                    step: 1,
+                    label: { Text("Menubar Size") },
+                    tick: { value in
+                        value.truncatingRemainder(dividingBy: 10) == 0 ? SliderTick(value) : nil
+                    }
+                )
+            } else {
+                Slider(value: truncationBinding, in: 30...60) {
+                    Text("Menubar Size")
+                }
+            }
+        }
+        .labelsHidden()
+        .frame(maxWidth: .infinity)
+        .tint(.secondary)
+    }
+
     @ViewBuilder
     var systemControlView: some View {
         HStack {
@@ -286,23 +328,7 @@ struct MenubarWindowView: View {
                 Image(systemName: "tortoise")
                     .opacity(0.8)
             }
-            // The slider takes whatever the row has left rather than a fixed width: the
-            // `...` menu has no set width on macOS 26+, so a fixed slider plus spacers could
-            // push Quit off the 260pt row. Absorbing the slack also buys the widest possible
-            // track, which is what makes a one-character step draggable at all.
-            Slider(
-                value: Binding(
-                    get: { Double(viewmodel.userDefaultStorage.truncationLength) },
-                    set: { viewmodel.userDefaultStorage.truncationLength = Int(round($0)) }
-                ),
-                in: 30...60,
-                step: 1
-            ) {
-                Text("Menubar Size")
-            }
-            .labelsHidden()
-            .frame(maxWidth: .infinity)
-            .tint(.secondary)
+            truncationSlider
             Text("\(viewmodel.userDefaultStorage.truncationLength)")
                 .font(.caption)
                 .monospacedDigit()
@@ -353,7 +379,7 @@ struct MenubarWindowView: View {
             Divider()
             systemControlView
         }
-        .frame(width: 260)
+        .frame(width: 300)
     }
 
     func pageHeader(_ title: String, back: Page) -> some View {
@@ -487,7 +513,7 @@ struct MenubarWindowView: View {
                 }
             }
         }
-        .frame(width: 260)
+        .frame(width: 300)
     }
 
     @ViewBuilder
@@ -532,7 +558,7 @@ struct MenubarWindowView: View {
             .scrollContentBackground(.hidden)
             .frame(height: 280)
         }
-        .frame(width: 260)
+        .frame(width: 300)
     }
 
     var body: some View {
