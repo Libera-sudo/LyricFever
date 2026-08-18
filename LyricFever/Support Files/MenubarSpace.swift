@@ -20,14 +20,19 @@ enum MenubarSpace {
     /// `MenuBarExtra` keeps its `NSStatusItem` to itself, so the item is found by its window
     /// instead: the app owns exactly one on-screen `NSStatusBarWindow`. This only reads a frame
     /// -- nothing here reaches into SwiftUI's ownership of the item.
-    static func availableWidth() -> CGFloat? {
+    /// - Parameter currentDrawnWidth: width of the image currently in the item. The status item
+    ///   frames its content with padding, so the frame is always wider than what we drew; this
+    ///   lets the difference be measured instead of guessed. Getting that wrong pushes the item
+    ///   under the notch and macOS collapses the whole menu bar behind a chevron.
+    static func availableWidth(currentDrawnWidth: CGFloat) -> CGFloat? {
         guard let screen = NSScreen.main,
               let notchRightEdge = screen.auxiliaryTopRightArea?.minX else { return nil }
         let statusWindows = NSApp.windows.filter {
             String(describing: type(of: $0)) == "NSStatusBarWindow" && $0.frame.maxY > screen.frame.midY
         }
         guard let ourFrame = statusWindows.map(\.frame).max(by: { $0.maxX < $1.maxX }) else { return nil }
-        let available = ourFrame.maxX - notchRightEdge
+        let padding = max(ourFrame.width - currentDrawnWidth, 0)
+        let available = ourFrame.maxX - notchRightEdge - padding
         return available > 0 ? floor(available) : nil
     }
 }

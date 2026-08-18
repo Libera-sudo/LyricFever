@@ -185,7 +185,10 @@ import MediaRemoteAdapter
     func remeasureMenubarWidth() {
         let cap = CGFloat(userDefaultStorage.menubarWidth)
         // A margin so the lyric never butts straight up against the notch.
-        let width = min(cap, (MenubarSpace.availableWidth().map { $0 - 8 }) ?? cap)
+        // A wider margin than looks necessary: overshooting even slightly tucks the item under
+        // the notch, and macOS answers by collapsing every status item behind a chevron.
+        let measured = MenubarSpace.availableWidth(currentDrawnWidth: menubarLyricWidth).map { $0 - 16 }
+        let width = min(cap, measured ?? cap)
         let clamped = max(width, 80)
         if clamped != menubarLyricWidth {
             print("Menubar: lyric width \(Int(menubarLyricWidth))pt -> \(Int(clamped))pt (cap \(Int(cap))pt)")
