@@ -573,9 +573,13 @@ struct MenubarWindowView: View {
             Button {
                 page = back
             } label: {
-                Image(systemName: "chevron.left").bold()
+                Image(systemName: "chevron.left")
+                    .bold()
+                    .padding(.vertical, 4)
+                    .padding(.trailing, 4)
+                    .contentShape(.rect)
             }
-            .buttonStyle(.borderless)
+            .buttonStyle(.plain)
             Text(title).font(.headline)
             Spacer()
         }
@@ -588,14 +592,19 @@ struct MenubarWindowView: View {
         Button(action: action) {
             HStack {
                 Text(label).lineLimit(1)
-                Spacer()
+                Spacer(minLength: 0)
                 if selected {
                     Image(systemName: "checkmark").bold()
                 }
             }
+            // The row has to claim the full width and declare its shape, otherwise only the
+            // glyphs themselves are clickable and most of the row is dead space. .plain keeps
+            // the label's frame as the hit area; .borderless shrinks it to the content.
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.vertical, 4)
             .contentShape(.rect)
         }
-        .buttonStyle(.borderless)
+        .buttonStyle(.plain)
     }
 
     /// A row that leads to another page, showing the value currently in effect.
@@ -607,9 +616,11 @@ struct MenubarWindowView: View {
                 Text(value).foregroundStyle(.secondary).lineLimit(1)
                 Image(systemName: "chevron.right").foregroundStyle(.secondary)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.vertical, 4)
             .contentShape(.rect)
         }
-        .buttonStyle(.borderless)
+        .buttonStyle(.plain)
     }
 
     func languageLabel(_ language: Locale.Language) -> String {
@@ -695,6 +706,8 @@ struct MenubarWindowView: View {
             pageHeader(choice.title, back: .translationSettings)
             Divider()
             ScrollView {
+                // Without this the stack hugs its widest label and every row is narrower
+                // than the panel, leaving the rest of each row unclickable.
                 VStack(alignment: .leading, spacing: 2) {
                     switch choice {
                         case .sourceForThisSong:
@@ -720,6 +733,7 @@ struct MenubarWindowView: View {
                             }
                     }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
             .frame(maxHeight: 280)
         }
