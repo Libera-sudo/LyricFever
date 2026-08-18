@@ -448,11 +448,29 @@ import MediaRemoteAdapter
     }
     #endif
     
+    // The panel no longer carries a reload button or a delete button: this toggle is both.
+    // Switching lyrics off throws away the current song's cached lyrics, switching them back
+    // on downloads them again, so off-then-on is how a bad match gets redownloaded.
     func toggleLyrics() {
         if showLyrics {
+            #if os(macOS)
+            Task {
+                do {
+                    // refreshLyrics() restarts the updater itself once the lyrics land,
+                    // so there is no startLyricUpdater() call to pair with this.
+                    try await refreshLyrics()
+                } catch {
+                    print("Couldn't refresh lyrics on re-enabling them: \(error)")
+                }
+            }
+            #else
             startLyricUpdater()
+            #endif
         } else {
             stopLyricUpdater()
+            if let currentlyPlaying {
+                deleteLyric(trackID: currentlyPlaying)
+            }
         }
     }
     

@@ -19,16 +19,12 @@ enum MenubarButtonHighlight {
     case enableLyrics
     case disableLyrics
     case unavailableLyrics
-    case refreshLyrics
-    case refreshingLyrics
     case search
     case translate
     case translateEnabled
     case translationFail
     case translationLoading
     case translationUnavailable
-    case upload
-    case delete
     case quit
     case moreOptions
     
@@ -59,10 +55,6 @@ enum MenubarButtonHighlight {
                 LocalizedStringKey("Disable Lyrics")
             case .unavailableLyrics:
                 LocalizedStringKey("Lyrics unavailable.")
-            case .refreshLyrics:
-                LocalizedStringKey("Redownload lyrics")
-            case .refreshingLyrics:
-                LocalizedStringKey("Refreshing Lyrics...")
             case .search:
                 LocalizedStringKey("Manual lyric search")
             case .translate:
@@ -75,10 +67,6 @@ enum MenubarButtonHighlight {
                 LocalizedStringKey("Translating...")
             case .translationUnavailable:
                 LocalizedStringKey("Translation Unavailable")
-            case .upload:
-                LocalizedStringKey("Upload LRC File")
-            case .delete:
-                LocalizedStringKey("Delete Lyrics")
             case .quit:
                 LocalizedStringKey("Quit Lyric Fever (⌘ + Q)")
             case .moreOptions:

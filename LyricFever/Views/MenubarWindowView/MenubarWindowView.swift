@@ -186,15 +186,19 @@ struct MenubarWindowView: View {
         .padding(.bottom, 2)
     }
     
+    /// Now that the toggle doubles as the reload, it has to stay clickable whenever the app is
+    /// set up. A song with no lyrics used to make it `.disabled`, which under the new behavior
+    /// would strand the user exactly where they most want to retry -- `.missing` draws the same
+    /// inactive fill without taking the click away.
     var displayLyrics: ButtonState {
         if !viewmodel.userDefaultStorage.hasOnboarded {
             return .disabled
-        } else if viewmodel.lyricsIsEmptyPostLoad {
-            return .disabled
-        } else if viewmodel.showLyrics {
-            return .enabled
-        } else {
+        } else if !viewmodel.showLyrics {
             return .clickable
+        } else if viewmodel.lyricsIsEmptyPostLoad {
+            return .missing
+        } else {
+            return .enabled
         }
     }
     
@@ -210,7 +214,7 @@ struct MenubarWindowView: View {
                     switch displayLyrics {
                         case .enabled:
                             currentHoveredItem = .disableLyrics
-                        case .disabled:
+                        case .disabled, .missing:
                             currentHoveredItem = .unavailableLyrics
                         case .clickable:
                             currentHoveredItem = .enableLyrics
@@ -230,17 +234,6 @@ struct MenubarWindowView: View {
         Text("TODO")
     }
     
-    
-    var refreshState: ButtonState {
-        guard viewmodel.userDefaultStorage.hasOnboarded else {
-            return .disabled
-        }
-        if viewmodel.isFetching {
-            return .loading
-        } else {
-            return .clickable
-        }
-    }
     
     var translationState: ButtonState {
         guard viewmodel.userDefaultStorage.hasOnboarded else {
@@ -271,47 +264,10 @@ struct MenubarWindowView: View {
         return .clickable
     }
     
-    var deleteOrUploadState: ButtonState {
-        guard viewmodel.userDefaultStorage.hasOnboarded else {
-            return .disabled
-        }
-        // attach a separate disabled modifier to prevent slash flashing
-//        if viewmodel.isFetching {
-//            return .disabled
-//        }
-        return .clickable
-    }
-    
     @ViewBuilder
     var viewSelector: some View {
         @Bindable var viewmodel = viewmodel
         HStack {
-            SmallMenubarButton(buttonText: "", imageText: "arrow.clockwise", buttonState: refreshState) {
-                Task {
-                    do {
-                        try await viewmodel.refreshLyrics()
-                    } catch {
-                        print("Couldn't refresh lyrics: error \(String(describing: error))")
-                    }
-                }
-            }
-            .disabled(refreshState == .loading)
-            .onHover { isHovering in
-                if isHovering {
-                    switch refreshState {
-                        case .loading:
-                            currentHoveredItem = .refreshingLyrics
-                        case .disabled:
-                            currentHoveredItem = .none
-                        case .clickable:
-                            currentHoveredItem = .refreshLyrics
-                        default:
-                            currentHoveredItem = .none
-                    }
-                } else {
-                    currentHoveredItem = .none
-                }
-            }
             SmallMenubarButton(buttonText: "", imageText: "magnifyingglass", buttonState: searchState) {
                 NSApplication.shared.activate(ignoringOtherApps: true)
                 openWindow(id: "search")
@@ -345,33 +301,6 @@ struct MenubarWindowView: View {
                     currentHoveredItem = .none
                 }
             }
-            SmallMenubarButton(buttonText: "", imageText: viewmodel.lyricsIsEmptyPostLoad ? "arrow.up.document" : "trash", buttonState: deleteOrUploadState) {
-                if viewmodel.lyricsIsEmptyPostLoad {
-                    Task {
-                        do {
-                            try await viewmodel.uploadLocalLRCFile()
-                        } catch {
-                            print("MenuBarWindowView: Upload LRC: Error occurred: \(error)")
-                        }
-                    }
-                } else {
-                    guard let currentlyPlaying = viewmodel.currentlyPlaying else { return }
-                    viewmodel.deleteLyric(trackID: currentlyPlaying)
-                }
-            }
-            .disabled(viewmodel.isFetching)
-            .onHover { isHovering in
-                if isHovering {
-                    if viewmodel.lyricsIsEmptyPostLoad {
-                        currentHoveredItem = .upload
-                    } else {
-                        currentHoveredItem = .delete
-                    }
-                } else {
-                    currentHoveredItem = .none
-                }
-            }
-            .contentTransition(.symbolEffect(.replace))
         }
     }
     
@@ -492,17 +421,6 @@ struct MenubarWindowView: View {
         .padding(.top, 8)
     }
     
-    var menubarSizeSliderBinding: Binding<Double> {
-        Binding (
-            get: { Double(viewmodel.userDefaultStorage.truncationLength) },
-            set: { newValue in
-                let steps = [30, 40, 50, 60]
-                let closest = steps.min(by: { abs(Double($0) - newValue) < abs(Double($1) - newValue) }) ?? 40
-                viewmodel.userDefaultStorage.truncationLength = closest
-            }
-        )
-    }
-    
     var spotifyDelayBinding: Binding<Double> {
         Binding(
             get: { Double(viewmodel.userDefaultStorage.spotifyConnectDelayCount) },
@@ -513,23 +431,6 @@ struct MenubarWindowView: View {
         )
     }
     
-    @ViewBuilder
-    var menubarSizeSlider: some View {
-        @Bindable var viewmodel = viewmodel
-        HStack {
-            Image(systemName: "textformat.size")
-                .frame(width: 30)
-            Slider(value: menubarSizeSliderBinding, in: 30...60, step: 10, label: {
-                Text("Menubar Size")
-            })
-            .labelsHidden()
-            .frame(width: 160)
-            Text("\(viewmodel.userDefaultStorage.truncationLength)")
-                .frame(width: 23)
-        }
-        .tint(.secondary)
-    }
-
     @ViewBuilder
     var spotifyDelaySlider: some View {
         @Bindable var viewmodel = viewmodel
@@ -555,9 +456,6 @@ struct MenubarWindowView: View {
             lyricModifierView
             Divider()
             viewSelector
-            Divider()
-            menubarSizeSlider
-                .environment(\.colorScheme, .dark)
             if viewmodel.spotifyConnectDelay {
                 Divider()
                 spotifyDelaySlider
