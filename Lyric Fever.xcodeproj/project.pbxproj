@@ -12,7 +12,6 @@
 		8F1198742E72B9C60011A962 /* GlobalKeyboardShortcutsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F1198732E72B9C50011A962 /* GlobalKeyboardShortcutsView.swift */; };
 		8F1979952DA72D49008C113D /* IPADic in Frameworks */ = {isa = PBXBuildFile; productRef = 8F1979942DA72D49008C113D /* IPADic */; };
 		8F1979972DA72D49008C113D /* Mecab-Swift in Frameworks */ = {isa = PBXBuildFile; productRef = 8F1979962DA72D49008C113D /* Mecab-Swift */; };
-		8F28FDC22AA25D2700439D8D /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 8F28FDC12AA25D2700439D8D /* Sparkle */; };
 		8F2922C02E94DE0700B286FC /* MediaRemoteAdapter in Frameworks */ = {isa = PBXBuildFile; productRef = 8F2922BF2E94DE0700B286FC /* MediaRemoteAdapter */; };
 		8F2922C12E94DEFF00B286FC /* MediaRemoteAdapter in Embed Frameworks */ = {isa = PBXBuildFile; productRef = 8F2922BF2E94DE0700B286FC /* MediaRemoteAdapter */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		8F37323D2E6EC9C90075CDA7 /* OpenCC in Frameworks */ = {isa = PBXBuildFile; productRef = 8F37323C2E6EC9C90075CDA7 /* OpenCC */; };
@@ -27,7 +26,6 @@
 		8FA4E9782CE73DB900CEEF35 /* ColorKit in Frameworks */ = {isa = PBXBuildFile; productRef = 8FA4E9772CE73DB900CEEF35 /* ColorKit */; };
 		8FC8E9492A704EEB00F69915 /* LyricFever.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FC8E9482A704EEB00F69915 /* LyricFever.swift */; };
 		8FCFD1C32AE35DEA00B22023 /* spotifylogin.gif in Resources */ = {isa = PBXBuildFile; fileRef = 8FCFD1C22AE35DEA00B22023 /* spotifylogin.gif */; };
-		8FEF70F72D8B5CE40069AC01 /* Update22Window.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FEF70F62D8B5CE40069AC01 /* Update22Window.swift */; };
 		8FFA9F342AA1B3CB00BAEC5C /* SDWebImageSwiftUI in Frameworks */ = {isa = PBXBuildFile; productRef = 8FFA9F332AA1B3CB00BAEC5C /* SDWebImageSwiftUI */; };
 		8FFA9F382AA1B63500BAEC5C /* crossfade.gif in Resources */ = {isa = PBXBuildFile; fileRef = 8FFA9F362AA1B63500BAEC5C /* crossfade.gif */; };
 		8FFED07B2D8A26E700EA1510 /* SwiftOTP in Frameworks */ = {isa = PBXBuildFile; productRef = 8FFED07A2D8A26E700EA1510 /* SwiftOTP */; };
@@ -56,7 +54,6 @@
 		8FC8E9452A704EEB00F69915 /* Lyric Fever.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Lyric Fever.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		8FC8E9482A704EEB00F69915 /* LyricFever.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LyricFever.swift; sourceTree = "<group>"; };
 		8FCFD1C22AE35DEA00B22023 /* spotifylogin.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = spotifylogin.gif; sourceTree = "<group>"; };
-		8FEF70F62D8B5CE40069AC01 /* Update22Window.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Update22Window.swift; sourceTree = "<group>"; };
 		8FFA9F362AA1B63500BAEC5C /* crossfade.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = crossfade.gif; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -92,7 +89,6 @@
 				8F1979972DA72D49008C113D /* Mecab-Swift in Frameworks */,
 				8FFED07B2D8A26E700EA1510 /* SwiftOTP in Frameworks */,
 				8FA4E9782CE73DB900CEEF35 /* ColorKit in Frameworks */,
-				8F28FDC22AA25D2700439D8D /* Sparkle in Frameworks */,
 				8F8196872D93CCDC00F03741 /* StringMetric in Frameworks */,
 				8FFA9F342AA1B3CB00BAEC5C /* SDWebImageSwiftUI in Frameworks */,
 				8F89E1112C90DA4900F511EB /* LaunchAtLogin in Frameworks */,
@@ -143,7 +139,6 @@
 				8F4D20782E0131A4004A12CA /* Models */,
 				8F4D20712DFFAEB0004A12CA /* LyricProvider */,
 				8FC8E9482A704EEB00F69915 /* LyricFever.swift */,
-				8FEF70F62D8B5CE40069AC01 /* Update22Window.swift */,
 				8F1198732E72B9C50011A962 /* GlobalKeyboardShortcutsView.swift */,
 				8F6BD2982A8A6B7D008BBF88 /* ViewModel.swift */,
 				8F6BD2962A8A6278008BBF88 /* amplitudeKey.swift */,
@@ -180,7 +175,6 @@
 			packageProductDependencies = (
 				8F6BD2942A8A61C9008BBF88 /* AmplitudeSwift */,
 				8FFA9F332AA1B3CB00BAEC5C /* SDWebImageSwiftUI */,
-				8F28FDC12AA25D2700439D8D /* Sparkle */,
 				8F89E1102C90DA4900F511EB /* LaunchAtLogin */,
 				8FA4E9772CE73DB900CEEF35 /* ColorKit */,
 				8FFED07A2D8A26E700EA1510 /* SwiftOTP */,
@@ -225,7 +219,6 @@
 			packageReferences = (
 				8F6BD2932A8A61C8008BBF88 /* XCRemoteSwiftPackageReference "Amplitude-Swift" */,
 				8FFA9F322AA1B3CB00BAEC5C /* XCRemoteSwiftPackageReference "SDWebImageSwiftUI" */,
-				8F28FDC02AA25D2700439D8D /* XCRemoteSwiftPackageReference "Sparkle" */,
 				8F89E10F2C90DA4900F511EB /* XCRemoteSwiftPackageReference "LaunchAtLogin-Modern" */,
 				8FA4E9762CE73DB900CEEF35 /* XCRemoteSwiftPackageReference "ColorKit-macOS" */,
 				8FFED0792D8A26E700EA1510 /* XCRemoteSwiftPackageReference "SwiftOTP" */,
@@ -266,7 +259,6 @@
 			files = (
 				8F6BD2972A8A6278008BBF88 /* amplitudeKey.swift in Sources */,
 				8F4F49522A7EC32D00097888 /* (null) in Sources */,
-				8FEF70F72D8B5CE40069AC01 /* Update22Window.swift in Sources */,
 				8F6BD2992A8A6B7D008BBF88 /* ViewModel.swift in Sources */,
 				8FC8E9492A704EEB00F69915 /* LyricFever.swift in Sources */,
 				8F1198742E72B9C60011A962 /* GlobalKeyboardShortcutsView.swift in Sources */,
@@ -518,14 +510,6 @@
 				minimumVersion = 0.8.0;
 			};
 		};
-		8F28FDC02AA25D2700439D8D /* XCRemoteSwiftPackageReference "Sparkle" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/sparkle-project/Sparkle";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 2.4.2;
-			};
-		};
 		8F2922BE2E94DE0700B286FC /* XCRemoteSwiftPackageReference "mediaremote-adapter" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/ejbills/mediaremote-adapter";
@@ -615,11 +599,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 8F1979932DA72D49008C113D /* XCRemoteSwiftPackageReference "Mecab-Swift" */;
 			productName = "Mecab-Swift";
-		};
-		8F28FDC12AA25D2700439D8D /* Sparkle */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 8F28FDC02AA25D2700439D8D /* XCRemoteSwiftPackageReference "Sparkle" */;
-			productName = Sparkle;
 		};
 		8F2922BF2E94DE0700B286FC /* MediaRemoteAdapter */ = {
 			isa = XCSwiftPackageProductDependency;

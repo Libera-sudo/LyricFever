@@ -106,7 +106,6 @@ import MediaRemoteAdapter
     }
     
     #if os(macOS)
-    var updaterService = UpdaterService()
     var appleMusicPlayer = AppleMusicPlayer()
     var spotifyPlayer = SpotifyPlayer()
     #else
@@ -211,9 +210,6 @@ import MediaRemoteAdapter
         }
     }
 
-    // Override menubar with an update message
-    var mustUpdateUrgent: Bool = false
-
     // Delayed variable to hook onto for whether to display lyrics or not.
     // Prevents flickering that occurs when we directly bind to currentlyPlayingLyrics.isEmpty()
     var lyricsIsEmptyPostLoad: Bool = true
@@ -279,17 +275,8 @@ import MediaRemoteAdapter
         #if os(macOS)
         migrateTimestampsIfNeeded(context: coreDataContainer.viewContext)
         
-        
-        // Check if user must urgently update (overrides menubar)
-        Task {
-            mustUpdateUrgent = await updaterService.urgentUpdateExists
-        }
-        
         // onAppear()
         print("on appear running")
-        if userDefaultStorage.latestUpdateWindowShown < 23 {
-            return
-        }
         #endif
         guard userDefaultStorage.hasOnboarded else {
             return
@@ -640,7 +627,7 @@ import MediaRemoteAdapter
         }
     }
     
-    func onAppear(_ openWindow: OpenWindowAction) {
+    func onAppear() {
         setCurrentProperties()
     }
     
@@ -765,7 +752,7 @@ import MediaRemoteAdapter
     
     func startLyricUpdater() {
         currentLyricsUpdaterTask?.cancel()
-        if !isPlaying || currentlyPlayingLyrics.isEmpty || mustUpdateUrgent {
+        if !isPlaying || currentlyPlayingLyrics.isEmpty {
             return
         }
         // If an index exists, we're unpausing: meaning we must instantly find the current lyric

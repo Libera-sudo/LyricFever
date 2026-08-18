@@ -60,13 +60,6 @@ struct LyricFever: App {
                     print("Artwork Fetch Service: couldn't grab mbid image nor player image")
                 }
             }
-            .task(id: viewmodel.userDefaultStorage.latestUpdateWindowShown) {
-                if viewmodel.userDefaultStorage.latestUpdateWindowShown < 33 {
-                    NSApplication.shared.activate(ignoringOtherApps: true)
-                    openWindow(id: "update")
-                    viewmodel.userDefaultStorage.latestUpdateWindowShown = 33
-                }
-            }
             .task(id: viewmodel.userDefaultStorage.hasOnboarded) {
                 if !viewmodel.userDefaultStorage.hasOnboarded {
                     NSApplication.shared.activate(ignoringOtherApps: true)
@@ -88,7 +81,7 @@ struct LyricFever: App {
                 viewmodel.toggleLyrics()
             }
             .onAppear {
-                viewmodel.onAppear(openWindow)
+                viewmodel.onAppear()
             }
             .onReceive(DistributedNotificationCenter.default().publisher(for: Notification.Name(rawValue:  "com.apple.Music.playerInfo"))) { notification in
                 viewmodel.appleMusicPlaybackDidChange(notification)
@@ -190,20 +183,6 @@ struct LyricFever: App {
                 }
         }
         .windowResizability(.contentSize)
-        Window("Lyric Fever: Update 2.3", id: "update") { // << here !!
-            UpdateWindow().frame(minWidth: 700, maxWidth: 700, alignment: .center)
-                .environment(viewmodel)
-                .preferredColorScheme(.dark)
-                .onAppear {
-                    NSApp.setActivationPolicy(.regular)
-                }
-                .onDisappear {
-                    NSApp.setActivationPolicy(.accessory)
-                }
-        }
-            .windowResizability(.contentSize)
-            .windowStyle(.hiddenTitleBar)
-            .windowLevel(.floating)
     }
 }
 
@@ -216,4 +195,3 @@ extension String {
         return (self.count > length) ? self.prefix(length) + trailing : self
     }
 }
-

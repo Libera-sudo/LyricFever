@@ -243,9 +243,6 @@ struct MenubarWindowView: View {
         LaunchAtLogin.Toggle(String(localized: "Launch at Login"))
         .disabled(!viewmodel.userDefaultStorage.hasOnboarded)
         .keyboardShortcut("l")
-        Button("Check for Updates…") {
-            viewmodel.updaterService.updaterController.checkForUpdates(nil)
-        }
         Divider()
             .keyboardShortcut("u")
         Button("Buy Me A Beer (Thank You)!") {

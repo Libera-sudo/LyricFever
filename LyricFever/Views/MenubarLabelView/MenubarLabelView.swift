@@ -31,10 +31,7 @@ struct MenubarLabelView: View {
     @State private var widthCache = MenubarWidthCache()
 
     var menuBarTitle: String? {
-        // Update message takes priority
-        if viewmodel.mustUpdateUrgent {
-            return String(localized: "⚠️ Please Update (Click Check Updates)")
-        } else if viewmodel.userDefaultStorage.hasOnboarded {
+        if viewmodel.userDefaultStorage.hasOnboarded {
             // Try to work through lyric logic if onboarded
             if viewmodel.isPlaying, viewmodel.showLyrics, let currentlyPlayingLyricsIndex = viewmodel.currentlyPlayingLyricsIndex {
                 // Attempt to display translations
