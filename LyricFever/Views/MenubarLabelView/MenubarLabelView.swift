@@ -8,27 +8,8 @@
 import SwiftUI
 import AppKit
 
-/// Remembers the last measurement so `body` can read a width synchronously without redoing
-/// the work on every redraw. A reference type on purpose: mutating it is not a SwiftUI state
-/// change, which is what lets the lookup happen inline while the view is being built.
-@MainActor
-final class MenubarWidthCache {
-    private var key: String?
-    private var width: CGFloat?
-
-    func width(forKey key: String, measuring lines: @autoclosure () -> [String], cappedAt truncationLength: Int) -> CGFloat? {
-        if key != self.key {
-            self.key = key
-            self.width = MenubarLabelView.widestLine(among: lines(), cappedAt: truncationLength)
-        }
-        return width
-    }
-}
-
 struct MenubarLabelView: View {
     @Environment(ViewModel.self) var viewmodel
-
-    @State private var widthCache = MenubarWidthCache()
 
     var menuBarTitle: String? {
         if viewmodel.userDefaultStorage.hasOnboarded {
@@ -65,74 +46,55 @@ struct MenubarLabelView: View {
         }
     }
 
-    /// Every line the menubar could show for this song, in whichever form it will show them.
-    /// Mirrors the branching in `menuBarTitle`, which picks one array for the whole song.
-    var displayedLines: [String] {
-        if viewmodel.translationExists {
-            return viewmodel.translatedLyric
-        } else if !viewmodel.romanizedLyrics.isEmpty {
-            return viewmodel.romanizedLyrics
-        } else if !viewmodel.chineseConversionLyrics.isEmpty {
-            return viewmodel.chineseConversionLyrics
-        } else {
-            return viewmodel.currentlyPlayingLyrics.map(\.words)
-        }
-    }
-
-    /// Changes exactly when the set of lines the menubar would draw changes, so the width is
-    /// remeasured once per song (or once per settings flip) rather than on every redraw.
-    var measurementKey: String {
-        [
-            viewmodel.currentlyPlaying ?? "-",
-            String(viewmodel.userDefaultStorage.truncationLength),
-            String(viewmodel.translatedLyric.count),
-            String(viewmodel.romanizedLyrics.count),
-            String(viewmodel.chineseConversionLyrics.count),
-            String(viewmodel.currentlyPlayingLyrics.count)
-        ].joined(separator: "|")
-    }
-
     var body: some View {
         Group {
             if let menuBarTitle {
-                Text(menuBarTitle.trunc())
+                Image(nsImage: Self.render(menuBarTitle, width: CGFloat(viewmodel.userDefaultStorage.menubarWidth)))
             } else {
                 Image(systemName: "music.note.list")
             }
         }
-        // Holding a width is what stops the lyric shuffling sideways: a status item hugs its
-        // content, so without this the item -- and everything to its left -- is relaid out on
-        // every line. The width is the widest line *this song* will actually draw rather than
-        // the theoretical maximum for `truncationLength`: reserving forty CJK characters would
-        // claim over 500pt of menu bar and leave most of it empty on an English song. Trailing
-        // alignment pins the right edge, so lines grow leftwards into the reserved space.
-        //
-        // Measured inline rather than from a `.task`: that ran a cycle late, so each new line
-        // was drawn once at its own width before the reserved width arrived and shoved it
-        // right -- read as the text sliding into place. The cache keeps the repeat cost to a
-        // dictionary-free string compare.
-        .frame(
-            width: widthCache.width(
-                forKey: measurementKey,
-                measuring: displayedLines,
-                cappedAt: viewmodel.userDefaultStorage.truncationLength
-            ),
-            alignment: .trailing
-        )
-        // A width change is a relayout, never something to animate across.
-        .transaction { $0.animation = nil }
     }
 
-    /// Measures in the menu bar's own font, on the already-truncated strings, so the answer is
-    /// the width actually drawn. Returns nil for a song with no lyrics, which lets the frame
-    /// collapse back to the placeholder icon instead of holding a wide empty gap.
-    static func widestLine(among lines: [String], cappedAt truncationLength: Int) -> CGFloat? {
-        guard !lines.isEmpty else { return nil }
-        let attributes: [NSAttributedString.Key: Any] = [.font: NSFont.menuBarFont(ofSize: 0)]
-        let widest = lines.reduce(into: CGFloat.zero) { widest, line in
-            let drawn = line.count > truncationLength ? String(line.prefix(truncationLength)) + "…" : line
-            widest = max(widest, (drawn as NSString).size(withAttributes: attributes).width)
-        }
-        return widest > 0 ? ceil(widest) : nil
+    /// Draws the lyric into a picture of a constant width instead of handing the menu bar a
+    /// string that resizes.
+    ///
+    /// A status item whose width changes is repositioned by the system, and that happens in two
+    /// visible steps: the item keeps its left edge and grows rightwards -- briefly overlapping
+    /// whatever sits to its right -- and only afterwards does the menu bar repack and everything
+    /// slide across. A bare AppKit probe that set `NSStatusItem.length` explicitly, inside a
+    /// zero-duration animation group with implicit animation off, behaved exactly the same, so
+    /// this is the status bar's own layout pass and not something an app can schedule around.
+    /// A constant width sidesteps it completely: nothing is ever resized, so nothing is ever
+    /// repositioned, and the right edge simply stays.
+    ///
+    /// Keeping it narrow matters beyond tidiness. macOS hides status items that overflow past
+    /// the notch, so every extra point the lyric claims is paid for by some other icon
+    /// disappearing. Lines wider than this are truncated rather than allowed to push.
+    ///
+    /// `isTemplate` hands colouring back to AppKit, so the lyric follows the menu bar the way
+    /// the placeholder icon does, in light and dark alike.
+    static func render(_ text: String, width: CGFloat) -> NSImage {
+        let height: CGFloat = 18
+        let width = max(width, 1)
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.alignment = .right
+        paragraph.lineBreakMode = .byTruncatingTail
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: NSFont.menuBarFont(ofSize: 0),
+            .foregroundColor: NSColor.black,
+            .paragraphStyle: paragraph
+        ]
+        let line = text as NSString
+        let lineHeight = line.size(withAttributes: attributes).height
+        let image = NSImage(size: NSSize(width: width, height: height))
+        image.lockFocus()
+        line.draw(
+            in: NSRect(x: 0, y: (height - lineHeight) / 2, width: width, height: lineHeight),
+            withAttributes: attributes
+        )
+        image.unlockFocus()
+        image.isTemplate = true
+        return image
     }
 }

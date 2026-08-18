@@ -52,4 +52,9 @@ class UserDefaultStorage {
     @ObservationIgnored var hasTranslated: Bool
     @ObservableUserDefault(.init(key: "truncationLength", defaultValue: 40, store: .standard))
     @ObservationIgnored var truncationLength: Int
+    // How much menu bar the lyric occupies, in points. A width rather than a character count:
+    // the same forty characters are twice as wide in Chinese as in English, and it is the
+    // width the user is actually budgeting.
+    @ObservableUserDefault(.init(key: "menubarWidth", defaultValue: 180, store: .standard))
+    @ObservationIgnored var menubarWidth: Int
 }

@@ -210,8 +210,8 @@ struct MenubarWindowView: View {
     
     var truncationBinding: Binding<Double> {
         Binding(
-            get: { Double(viewmodel.userDefaultStorage.truncationLength) },
-            set: { viewmodel.userDefaultStorage.truncationLength = Int(round($0)) }
+            get: { Double(viewmodel.userDefaultStorage.menubarWidth) },
+            set: { viewmodel.userDefaultStorage.menubarWidth = Int(round($0)) }
         )
     }
 
@@ -233,17 +233,17 @@ struct MenubarWindowView: View {
             if #available(macOS 26.0, *) {
                 Slider(
                     value: truncationBinding,
-                    in: 30...60,
+                    in: 100...320,
                     label: { Text("Menubar Size") },
                     ticks: {
-                        SliderTick(30)
-                        SliderTick(40)
-                        SliderTick(50)
-                        SliderTick(60)
+                        SliderTick(100)
+                        SliderTick(160)
+                        SliderTick(220)
+                        SliderTick(280)
                     }
                 )
             } else {
-                Slider(value: truncationBinding, in: 30...60) {
+                Slider(value: truncationBinding, in: 100...320) {
                     Text("Menubar Size")
                 }
             }
@@ -283,10 +283,10 @@ struct MenubarWindowView: View {
                     .opacity(0.8)
             }
             truncationSlider
-            Text("\(viewmodel.userDefaultStorage.truncationLength)")
+            Text("\(viewmodel.userDefaultStorage.menubarWidth)")
                 .font(.caption)
                 .monospacedDigit()
-                .frame(width: 18)
+                .frame(width: 26)
             Button("Quit") {
                 NSApplication.shared.terminate(nil)
             }
