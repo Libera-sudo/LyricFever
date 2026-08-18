@@ -15,7 +15,6 @@ struct MenubarWindowView: View {
     @Environment(ViewModel.self) var viewmodel
     @Environment(\.dismiss) var dismiss
     @Environment(\.colorScheme) var colorScheme
-    @State var currentHoveredItem = MenubarButtonHighlight.none
     @State var supportedLanguages: [Locale.Language] = []
 
     /// Which panel page is showing.
@@ -104,42 +103,9 @@ struct MenubarWindowView: View {
     }
     
     @ViewBuilder
-    var songControls: some View {
-        HStack {
-            SongControlButton(systemImage: "backward.fill") {
-                viewmodel.currentPlayerInstance.rewind()
-            }
-            .onHover { isHovering in
-                currentHoveredItem = isHovering ? .rewind : .none
-            }
-            SongControlButton(systemImage: viewmodel.isPlaying ? "pause.fill" : "play.fill", wiggle: false) {
-                viewmodel.currentPlayerInstance.togglePlayback()
-            }
-//            .controlSize(.large)
-            .onHover { isHovering in
-                currentHoveredItem = isHovering ? (viewmodel.isPlaying ? .pause : .play) : .none
-            }
-            .keyboardShortcut(" ", modifiers: [])
-            .contentTransition(.symbolEffect(.replace, options: .speed(2)))
-            
-            SongControlButton(systemImage: "forward.fill") {
-                viewmodel.currentPlayerInstance.forward()
-            }
-            .onHover { isHovering in
-                currentHoveredItem = isHovering ? .forward : .none
-            }
-        }
-        .frame(height: 30)
-//        .buttonStyle(.accessoryBar)
-    }
-    
-    @ViewBuilder
     var headerView: some View {
         HStack(spacing: 12) {
             profilePicViewHeaderView
-                .onHover { isHovering in
-                    currentHoveredItem = isHovering ? viewmodel.currentPlayerInstance.currentHoverItem : .none
-                }
                 .onTapGesture {
                     viewmodel.currentPlayerInstance.activate()
                     dismiss()
@@ -160,26 +126,8 @@ struct MenubarWindowView: View {
 //                                print(error)
 //                            }
 //                        }
-//                        .onHover { isHovering in
-//                            currentHoveredItem = isHovering ? (viewmodel.isHearted ? .unheart : .heart) : .none
-//                        }
                 }
-                songControls
-                
-                ProgressView(value: displayLyrics == .enabled ? viewmodel.currentTime.currentTime : 0, total: Double(viewmodel.duration))
-                    .progressViewStyle(ColoredThinProgressViewStyle(color: .secondary, thickness: 4))
-                    .frame(height: 4)
-                    .padding(.horizontal, 4)
-                    .environment(\.colorScheme, .dark)
-                
-                HStack {
-                    Text(displayLyrics == .enabled ? viewmodel.formattedCurrentTime : "--:--")
-                        .font(.caption2)
-                    Spacer()
-                    Text(viewmodel.formattedDuration)
-                        .font(.caption2)
-                }
-                .padding(.horizontal, 4)
+                lyricControls
             }
         }
         // even out vertical padding with divider as compared to Menubar button
@@ -202,32 +150,6 @@ struct MenubarWindowView: View {
         }
     }
     
-    
-    @ViewBuilder
-    var lyricModifierView: some View {
-        HStack {
-            MenubarButton(buttonText: "", imageText: "music.note.list", buttonState: displayLyrics) {
-                viewmodel.showLyrics.toggle()
-            }
-            .onHover { isHovering in
-                if isHovering {
-                    switch displayLyrics {
-                        case .enabled:
-                            currentHoveredItem = .disableLyrics
-                        case .disabled, .missing:
-                            currentHoveredItem = .unavailableLyrics
-                        case .clickable:
-                            currentHoveredItem = .enableLyrics
-                        default:
-                            currentHoveredItem = .none
-                    }
-                } else {
-                    currentHoveredItem = .none
-                }
-            }
-        }
-    }
-
     
     @ViewBuilder
     var spotifyConnectDelayPicker: some View {
@@ -265,42 +187,19 @@ struct MenubarWindowView: View {
     }
     
     @ViewBuilder
-    var viewSelector: some View {
-        @Bindable var viewmodel = viewmodel
+    var lyricControls: some View {
         HStack {
+            SmallMenubarButton(buttonText: "", imageText: "music.note.list", buttonState: displayLyrics) {
+                viewmodel.showLyrics.toggle()
+            }
             SmallMenubarButton(buttonText: "", imageText: "magnifyingglass", buttonState: searchState) {
                 NSApplication.shared.activate(ignoringOtherApps: true)
                 openWindow(id: "search")
-            }
-            .onHover { isHovering in
-                if isHovering {
-                    currentHoveredItem = .search
-                } else {
-                    currentHoveredItem = .none
-                }
             }
             SmallMenubarButton(buttonText: "", imageText: "translate", buttonState: translationState) {
                 page = .translationSettings
             }
             .disabled(translationState == .disabled)
-            .onHover { isHovering in
-                if isHovering {
-                    switch translationState {
-                        case .enabled:
-                            currentHoveredItem = .translateEnabled
-                        case .disabled:
-                            currentHoveredItem = .translationUnavailable
-                        case .loading:
-                            currentHoveredItem = .translationLoading
-                        case .clickable:
-                            currentHoveredItem = .translate
-                        case .missing:
-                            currentHoveredItem = .translationFail
-                    }
-                } else {
-                    currentHoveredItem = .none
-                }
-            }
         }
     }
     
@@ -367,13 +266,6 @@ struct MenubarWindowView: View {
                 }
                 .environment(\.colorScheme, .dark)
                 .menuIndicator(.hidden)
-                .onHover { isHovering in
-                    if isHovering {
-                        currentHoveredItem = .moreOptions
-                    } else {
-                        currentHoveredItem = .none
-                    }
-                }
             } else {
                 Menu {
                     otherOptions
@@ -385,13 +277,6 @@ struct MenubarWindowView: View {
                 .frame(width: 30)
                 .environment(\.colorScheme, .dark)
                 .menuIndicator(.hidden)
-                .onHover { isHovering in
-                    if isHovering {
-                        currentHoveredItem = .moreOptions
-                    } else {
-                        currentHoveredItem = .none
-                    }
-                }
             }
             if viewmodel.airplayDelay {
                 Image(systemName: "airplayaudio")
@@ -401,21 +286,29 @@ struct MenubarWindowView: View {
                 Image(systemName: "tortoise")
                     .opacity(0.8)
             }
-            Spacer()
-            Text(currentHoveredItem.description)
-                .minimumScaleFactor(0.8)
-                .textCase(.uppercase)
-                .font(.system(size: 12, weight: .light, design: .monospaced))
-            Spacer()
+            // The slider takes whatever the row has left rather than a fixed width: the
+            // `...` menu has no set width on macOS 26+, so a fixed slider plus spacers could
+            // push Quit off the 260pt row. Absorbing the slack also buys the widest possible
+            // track, which is what makes a one-character step draggable at all.
+            Slider(
+                value: Binding(
+                    get: { Double(viewmodel.userDefaultStorage.truncationLength) },
+                    set: { viewmodel.userDefaultStorage.truncationLength = Int(round($0)) }
+                ),
+                in: 30...60,
+                step: 1
+            ) {
+                Text("Menubar Size")
+            }
+            .labelsHidden()
+            .frame(maxWidth: .infinity)
+            .tint(.secondary)
+            Text("\(viewmodel.userDefaultStorage.truncationLength)")
+                .font(.caption)
+                .monospacedDigit()
+                .frame(width: 18)
             Button("Quit") {
                 NSApplication.shared.terminate(nil)
-            }
-            .onHover { isHovering in
-                if isHovering {
-                    currentHoveredItem = .quit
-                } else {
-                    currentHoveredItem = .none
-                }
             }
         }
         .padding(.top, 8)
@@ -452,10 +345,6 @@ struct MenubarWindowView: View {
     var mainPage: some View {
         VStack {
             headerView
-            Divider()
-            lyricModifierView
-            Divider()
-            viewSelector
             if viewmodel.spotifyConnectDelay {
                 Divider()
                 spotifyDelaySlider
@@ -464,6 +353,7 @@ struct MenubarWindowView: View {
             Divider()
             systemControlView
         }
+        .frame(width: 260)
     }
 
     func pageHeader(_ title: String, back: Page) -> some View {
@@ -681,4 +571,3 @@ struct MenubarWindowView: View {
         }
     }
 }
-

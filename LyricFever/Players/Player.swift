@@ -36,7 +36,6 @@ protocol Player {
     
     // menubar behaviour
     func activate()
-    var currentHoverItem: MenubarButtonHighlight { get }
 }
 
 extension Player {
