@@ -260,17 +260,18 @@ struct MenubarWindowView: View {
         )
     }
 
-    /// Menubar text length, one character per step.
+    /// Menubar text length: drag lands on any single character, marks appear every ten.
     ///
-    /// The step is what the drag snaps to; the tick marks are a separate thing. Asking for
-    /// `step: 1` alone would draw all thirty-one of them and turn the track into a dotted
-    /// line, so on macOS 26 the `tick:` closure keeps the fine step and hands back a mark
-    /// only on multiples of ten. Older systems have no such split and fall back to a
-    /// continuous track -- the binding rounds, so the stored value is an Int either way.
+    /// Those two are not the same knob. A `step:` both snaps the drag *and* draws a mark at
+    /// every stop, so `step: 1` turned the track into a dotted line of thirty-one marks --
+    /// and the `tick:` closure that pairs with it only restyles those marks, returning nil
+    /// does not remove one. The separate `ticks:` initialiser takes no step at all: the value
+    /// stays continuous and only the marks listed here are drawn. The binding rounds, so what
+    /// gets stored is still a whole number of characters.
     ///
     /// It claims the row's slack rather than a fixed width: the `...` menu has no set width
     /// on macOS 26+, so a fixed slider plus spacers could push Quit off the row, and the
-    /// longest possible track is what makes a one-character step draggable at all.
+    /// longest possible track is what makes single-character precision draggable at all.
     @ViewBuilder
     var truncationSlider: some View {
         Group {
@@ -278,10 +279,12 @@ struct MenubarWindowView: View {
                 Slider(
                     value: truncationBinding,
                     in: 30...60,
-                    step: 1,
                     label: { Text("Menubar Size") },
-                    tick: { value in
-                        value.truncatingRemainder(dividingBy: 10) == 0 ? SliderTick(value) : nil
+                    ticks: {
+                        SliderTick(30)
+                        SliderTick(40)
+                        SliderTick(50)
+                        SliderTick(60)
                     }
                 )
             } else {
