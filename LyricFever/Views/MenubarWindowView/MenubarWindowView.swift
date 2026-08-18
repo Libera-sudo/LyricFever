@@ -771,7 +771,14 @@ struct MenubarWindowView: View {
                 await LanguageAvailability().supportedLanguages
             }.value
             await MainActor.run {
-                supportedLanguages = languages
+                // The API returns them in no meaningful order. Sort by the name actually
+                // shown, using localizedStandardCompare so it matches how the user's language
+                // orders things rather than raw code points.
+                supportedLanguages = languages.sorted {
+                    let a = Locale.current.localizedString(forIdentifier: $0.minimalIdentifier) ?? $0.maximalIdentifier
+                    let b = Locale.current.localizedString(forIdentifier: $1.minimalIdentifier) ?? $1.maximalIdentifier
+                    return a.localizedStandardCompare(b) == .orderedAscending
+                }
             }
         }
     }
