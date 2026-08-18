@@ -8,11 +8,27 @@
 import SwiftUI
 import AppKit
 
+/// Remembers the last measurement so `body` can read a width synchronously without redoing
+/// the work on every redraw. A reference type on purpose: mutating it is not a SwiftUI state
+/// change, which is what lets the lookup happen inline while the view is being built.
+@MainActor
+final class MenubarWidthCache {
+    private var key: String?
+    private var width: CGFloat?
+
+    func width(forKey key: String, measuring lines: @autoclosure () -> [String], cappedAt truncationLength: Int) -> CGFloat? {
+        if key != self.key {
+            self.key = key
+            self.width = MenubarLabelView.widestLine(among: lines(), cappedAt: truncationLength)
+        }
+        return width
+    }
+}
+
 struct MenubarLabelView: View {
     @Environment(ViewModel.self) var viewmodel
 
-    /// Width held for the lyric, in points. Nil until a song with lyrics is loaded.
-    @State private var reservedWidth: CGFloat?
+    @State private var widthCache = MenubarWidthCache()
 
     var menuBarTitle: String? {
         // Update message takes priority
@@ -93,10 +109,21 @@ struct MenubarLabelView: View {
         // the theoretical maximum for `truncationLength`: reserving forty CJK characters would
         // claim over 500pt of menu bar and leave most of it empty on an English song. Trailing
         // alignment pins the right edge, so lines grow leftwards into the reserved space.
-        .frame(width: reservedWidth, alignment: .trailing)
-        .task(id: measurementKey) {
-            reservedWidth = Self.widestLine(among: displayedLines, cappedAt: viewmodel.userDefaultStorage.truncationLength)
-        }
+        //
+        // Measured inline rather than from a `.task`: that ran a cycle late, so each new line
+        // was drawn once at its own width before the reserved width arrived and shoved it
+        // right -- read as the text sliding into place. The cache keeps the repeat cost to a
+        // dictionary-free string compare.
+        .frame(
+            width: widthCache.width(
+                forKey: measurementKey,
+                measuring: displayedLines,
+                cappedAt: viewmodel.userDefaultStorage.truncationLength
+            ),
+            alignment: .trailing
+        )
+        // A width change is a relayout, never something to animate across.
+        .transaction { $0.animation = nil }
     }
 
     /// Measures in the menu bar's own font, on the already-truncated strings, so the answer is
