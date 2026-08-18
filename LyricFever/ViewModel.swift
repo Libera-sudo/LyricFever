@@ -291,11 +291,6 @@ import MediaRemoteAdapter
             return
         }
         #endif
-        if userDefaultStorage.cookie.count == 0 {
-            print("Setting hasOnboarded to false due to empty cookie")
-            userDefaultStorage.hasOnboarded = false
-            return
-        }
         guard userDefaultStorage.hasOnboarded else {
             return
         }
