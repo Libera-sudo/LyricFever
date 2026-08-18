@@ -74,6 +74,12 @@ class AppleMusicPlayer: Player {
     func forward() {
         appleMusicScript?.nextTrack?()
     }
+
+    // No Spotify equivalent is known for an Apple Music track any more, so nothing here is
+    // shareable as a Spotify link.
+    func shareURL(for currentlyPlaying: String?) -> URL? {
+        nil
+    }
     
     var artworkImage: NSImage?
     

@@ -349,8 +349,8 @@ import MediaRemoteAdapter
     func refreshLyrics() async throws {
         // todo: romanize
         if currentPlayer == .appleMusic {
-            print("Refresh Lyrics: Calling Apple Music Network fetch")
-            try await appleMusicNetworkFetch()
+            print("Refresh Lyrics: Re-deriving the Apple Music track key")
+            try await appleMusicFetch()
         }
         guard let currentlyPlaying, let currentlyPlayingName, let currentDuration = currentPlayerInstance.durationAsTimeInterval else {
             return
@@ -669,7 +669,7 @@ import MediaRemoteAdapter
         switch currentPlayer {
             case .appleMusic:
                 if let currentTrackName = appleMusicPlayer.trackName, let currentArtistName = appleMusicPlayer.artistName, let duration = appleMusicPlayer.duration, let currentAlbumName = appleMusicPlayer.albumName {
-                    // Don't set currentlyPlaying here: the persistentID change triggers the appleMusicFetch which will set spotify's currentlyPlaying
+                    // Don't set currentlyPlaying here: the persistentID change triggers appleMusicFetch, which derives the key
                     if currentTrackName == "" {
                         currentlyPlayingName = nil
                         currentlyPlayingArtist = nil
@@ -1160,90 +1160,34 @@ extension ViewModel {
         }
     }
     
+    /// Establishes which cache key the playing Apple Music track uses.
+    ///
+    /// This used to search Spotify for an "equivalent" song and adopt whatever came back --
+    /// its ID as the key, and its name, artist and album written over Apple Music's own. The
+    /// search took the single top hit with no similarity check, so a miss renamed the track
+    /// outright: "Bread and Roses" by the New York City Labor Chorus came through as
+    /// "Hallelujah, I'm A Bum!" by Utah Phillips, and that wrong name was then what LRCLIB and
+    /// NetEase were asked for, poisoning all three providers from one bad guess. The result
+    /// was cached under the wrong ID and a persistentID -> Spotify ID table replayed it on
+    /// every later play. Apple Music's own persistent ID needs none of that.
+    ///
+    /// The `appleMusic:` prefix keeps the two ID spaces apart. A bare 22-character string is
+    /// read elsewhere as "this is a Spotify track", which is a shape an unprefixed identifier
+    /// could stumble into.
     func appleMusicFetch() async throws {
-        // check coredata for apple music persistent id -> spotify id mapping
-        if let coreDataSpotifyID = fetchSpotifyIDFromPersistentIDCoreData() {
-            if !Task.isCancelled {
-                print("Apple Music CoreData Fetch: setting currentlyPlaying to \(coreDataSpotifyID)")
-                self.currentlyPlaying = coreDataSpotifyID
-                return
-            }
-        }
-        print("Apple Music Fetch: No CoreData val. Fetching from network")
-        try await appleMusicNetworkFetch()
-    }
-    
-    func appleMusicNetworkFetch() async throws {
         isFetching = true
-//        do {
-//            print("Apple Music Network Fetch: 3 second sleep")
-//            try await Task.sleep(for: .seconds(3))
-//        } catch {
-//            print("Apple Music Network Fetch cancelled during the 3 seconds of sleep")
-//        }
-        print("Apple Music Network Fetch: isFetching set to true")
-        // coredata didn't get us anything
-//        try await spotifyLyricProvider.generateAccessToken()
-        
-        // Task cancelled means we're working with old song data, so dont update Spotify ID with old song's ID
-        
-        // search for equivalent spotify song
-        if let spotifyResult = try await musicToSpotifyHelper() {
-            self.currentlyPlayingName = spotifyResult.SpotifyName
-            self.currentlyPlayingArtist = spotifyResult.SpotifyArtist
-            self.currentAlbumName = spotifyResult.SpotifyAlbum
-            self.currentlyPlaying = spotifyResult.SpotifyID
-        } else {
-            if let alternativeID = appleMusicPlayer.alternativeID, alternativeID != "" {
-                try Task.checkCancellation()
-                self.currentlyPlaying = alternativeID
-            } else {
-                lyricsIsEmptyPostLoad = true
-            }
-        }
-        
-        
-        if let currentlyPlayingAppleMusicPersistentID, let currentlyPlaying {
-            print("Apple Music Network Fetch: Saving persistent id \(currentlyPlayingAppleMusicPersistentID) and spotify ID \(currentlyPlaying)")
-            // save the mapping into coredata persistentIDToSpotify
-            let newPersistentIDToSpotifyIDMapping = PersistentIDToSpotify(context: coreDataContainer.viewContext)
-            newPersistentIDToSpotifyIDMapping.persistentID = currentlyPlayingAppleMusicPersistentID
-            newPersistentIDToSpotifyIDMapping.spotifyID = currentlyPlaying
-            saveCoreData()
-        }
-    }
-    
-    func fetchSpotifyIDFromPersistentIDCoreData() -> String? {
-        let fetchRequest: NSFetchRequest<PersistentIDToSpotify> = PersistentIDToSpotify.fetchRequest()
-        guard let currentlyPlayingAppleMusicPersistentID else {
-            print("No persistent ID available. it's nil! should have never happened")
-            return nil
-        }
-        fetchRequest.predicate = NSPredicate(format: "persistentID == %@", currentlyPlayingAppleMusicPersistentID) // Replace persistentID with the desired value
+        print("Apple Music Fetch: isFetching set to true")
 
-        do {
-            let results = try coreDataContainer.viewContext.fetch(fetchRequest)
-            if let persistentIDToSpotify = results.first {
-                // Found the persistentIDToSpotify object with the matching persistentID
-                print("Apple Music CoreData Fetch: Found SpotifyID \(persistentIDToSpotify.spotifyID) for \(persistentIDToSpotify.persistentID)")
-                return persistentIDToSpotify.spotifyID
-            } else {
-                // No SongObject found with the given trackID
-                print("No spotifyID found with the provided persistentID. \(currentlyPlayingAppleMusicPersistentID)")
-            }
-        } catch {
-            print("Error fetching persistentIDToSpotify:", error)
+        if let currentlyPlayingAppleMusicPersistentID, !currentlyPlayingAppleMusicPersistentID.isEmpty {
+            try Task.checkCancellation()
+            currentlyPlaying = "appleMusic:\(currentlyPlayingAppleMusicPersistentID)"
+        } else if let alternativeID = appleMusicPlayer.alternativeID, !alternativeID.isEmpty {
+            // Artist + title, for the occasional track that reports no persistent ID.
+            try Task.checkCancellation()
+            currentlyPlaying = "appleMusic:\(alternativeID)"
+        } else {
+            lyricsIsEmptyPostLoad = true
         }
-        return nil
-    }
-    
-    private func musicToSpotifyHelper() async throws -> AppleMusicHelper? {
-        // Manually search song name, artist name
-        guard let currentlyPlayingArtist, let currentlyPlayingName else {
-            print("\(#function) currentlyPlayingName or currentlyPlayingArtist missing")
-            return nil
-        }
-        return try await spotifyLyricProvider.searchForTrackForAppleMusic(artist: currentlyPlayingArtist, track: currentlyPlayingName)
     }
 }
 #endif

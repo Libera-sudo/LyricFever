@@ -36,6 +36,11 @@ protocol Player {
     
     // menubar behaviour
     func activate()
+
+    // Declared here, not just defaulted in the extension below: callers reach it through the
+    // `Player` existential, so an implementation on a conforming type is only ever dispatched
+    // if the protocol itself lists it.
+    func shareURL(for currentlyPlaying: String?) -> URL?
 }
 
 extension Player {
@@ -57,6 +62,8 @@ extension Player {
         }
     }
     
+    /// Spotify's own default: its track IDs are 22 characters. Apple Music overrides this to
+    /// return nil -- its keys are not Spotify IDs and must never be dressed up as one.
     func shareURL(for currentlyPlaying: String?) -> URL? {
         guard let currentlyPlaying, currentlyPlaying.count == 22 else {
             return nil
