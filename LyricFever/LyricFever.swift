@@ -55,6 +55,18 @@ struct LyricFever: App {
             }
             .onAppear {
                 viewmodel.onAppear()
+                // The status item does not exist yet on the first pass, so the first
+                // measurement waits for it to be placed.
+                Task { @MainActor in
+                    try? await Task.sleep(for: .seconds(1))
+                    viewmodel.remeasureMenubarWidth()
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSApplication.didChangeScreenParametersNotification)) { _ in
+                viewmodel.remeasureMenubarWidth()
+            }
+            .onChange(of: viewmodel.userDefaultStorage.menubarWidth) {
+                viewmodel.remeasureMenubarWidth()
             }
             .onReceive(DistributedNotificationCenter.default().publisher(for: Notification.Name(rawValue:  "com.apple.Music.playerInfo"))) { notification in
                 viewmodel.appleMusicPlaybackDidChange(notification)

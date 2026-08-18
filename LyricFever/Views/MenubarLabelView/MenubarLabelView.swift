@@ -49,7 +49,7 @@ struct MenubarLabelView: View {
     var body: some View {
         Group {
             if let menuBarTitle {
-                Image(nsImage: Self.render(menuBarTitle, width: CGFloat(viewmodel.userDefaultStorage.menubarWidth)))
+                Image(nsImage: Self.render(menuBarTitle, width: viewmodel.menubarLyricWidth))
             } else {
                 Image(systemName: "music.note.list")
             }

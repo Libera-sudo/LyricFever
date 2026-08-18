@@ -177,6 +177,21 @@ import MediaRemoteAdapter
     // Delayed variable to hook onto for whether to display lyrics or not.
     // Prevents flickering that occurs when we directly bind to currentlyPlayingLyrics.isEmpty()
     var lyricsIsEmptyPostLoad: Bool = true
+
+    /// Width the menubar lyric is drawn at, in points. Held steady while a song plays, and
+    /// remeasured only when the screen arrangement changes -- see `MenubarSpace`.
+    var menubarLyricWidth: CGFloat = 180
+
+    func remeasureMenubarWidth() {
+        let cap = CGFloat(userDefaultStorage.menubarWidth)
+        // A margin so the lyric never butts straight up against the notch.
+        let width = min(cap, (MenubarSpace.availableWidth().map { $0 - 8 }) ?? cap)
+        let clamped = max(width, 80)
+        if clamped != menubarLyricWidth {
+            print("Menubar: lyric width \(Int(menubarLyricWidth))pt -> \(Int(clamped))pt (cap \(Int(cap))pt)")
+            menubarLyricWidth = clamped
+        }
+    }
     
     var currentDuration: Int? {
         appleMusicPlayer.duration
