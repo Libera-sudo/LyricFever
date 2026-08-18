@@ -58,6 +58,10 @@ struct FinalTruncationView: View {
             .padding(.vertical, 15)
             
         }
+        .onAppear {
+            // Spotify login used to mark onboarding complete before that step was removed.
+            ViewModel.shared.userDefaultStorage.hasOnboarded = true
+        }
         .onChange(of: truncationLength) {
             UserDefaults.standard.set(truncationLength, forKey: "truncationLength")
         }

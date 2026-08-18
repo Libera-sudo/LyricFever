@@ -72,7 +72,7 @@ struct MainSettingsView: View {
     @ViewBuilder
     var permissionsOrNextButton: some View {
         if error == .authorized {
-            NavigationLink("Next", destination: ApiView())
+            NavigationLink("Next", destination: FinalTruncationView())
                 .font(.headline)
                 .controlSize(.large)
                 .buttonStyle(.borderedProminent)
