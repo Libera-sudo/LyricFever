@@ -52,14 +52,6 @@ struct MenubarWindowView: View {
                     .frame(width: 112, height: 112)
                     .clipShape(.rect(cornerRadius: 9))
 //                    .animation(.smooth(duration: 0.3), value: viewmodel.newAlbum)
-                    .apply {
-                        if let shareURL = viewmodel.currentPlayerInstance.shareURL(for: viewmodel.currentlyPlaying) {
-                            $0
-                                .draggable(shareURL)
-                        } else {
-                            $0
-                        }
-                    }
                     .shadow(color: viewmodel.currentBackground ?? .clear, radius: 70)
                     .shadow(color: viewmodel.currentBackground ?? .clear, radius: 70)
             } else {
@@ -107,7 +99,7 @@ struct MenubarWindowView: View {
         HStack(spacing: 12) {
             profilePicViewHeaderView
                 .onTapGesture {
-                    viewmodel.currentPlayerInstance.activate()
+                    viewmodel.appleMusicPlayer.activate()
                     dismiss()
                 }
             VStack {
@@ -133,12 +125,6 @@ struct MenubarWindowView: View {
         } else {
             return .enabled
         }
-    }
-    
-    
-    @ViewBuilder
-    var spotifyConnectDelayPicker: some View {
-        Text("TODO")
     }
     
     
@@ -188,29 +174,16 @@ struct MenubarWindowView: View {
         }
     }
     
+    /// AirPlay costs about two seconds of latency, and `AppleMusicPlayer.currentTime`
+    /// subtracts that when this is on. The toggle used to sit inside a `currentPlayer ==
+    /// .spotify` branch together with the Spotify Connect controls, so the one player that
+    /// actually reads the flag could never reach it.
     @ViewBuilder
     var streamingDelayView: some View {
         @Bindable var viewmodel = viewmodel
-        if viewmodel.currentPlayer == .spotify {
-             Toggle("Spotify Connect Audio Delay", isOn: $viewmodel.spotifyConnectDelay)
-                 .disabled(!viewmodel.userDefaultStorage.hasOnboarded)
-            if viewmodel.spotifyConnectDelay {
-                 Text("Offset is \(viewmodel.userDefaultStorage.spotifyConnectDelayCount) ms")
-//                 if viewmodel.userDefaultStorage.spotifyConnectDelayCount != 3000 {
-//                     Button("Increase Offset to \(viewmodel.userDefaultStorage.spotifyConnectDelayCount+100)") {
-//                         viewmodel.userDefaultStorage.spotifyConnectDelayCount = viewmodel.userDefaultStorage.spotifyConnectDelayCount + 100
-//                     }
-//                 }
-//                if viewmodel.userDefaultStorage.spotifyConnectDelayCount != 300 {
-//                     Button("Decrease Offset to \(viewmodel.userDefaultStorage.spotifyConnectDelayCount-100)") {
-//                         viewmodel.userDefaultStorage.spotifyConnectDelayCount = viewmodel.userDefaultStorage.spotifyConnectDelayCount - 100
-//                     }
-//                 }
-             }
-            Toggle("AirPlay Audio Delay", isOn: $viewmodel.airplayDelay)
-                .disabled(!viewmodel.userDefaultStorage.hasOnboarded)
-            Divider()
-        }
+        Toggle("AirPlay Audio Delay", isOn: $viewmodel.userDefaultStorage.airplayDelay)
+            .disabled(!viewmodel.userDefaultStorage.hasOnboarded)
+        Divider()
     }
     
     @ViewBuilder
@@ -305,12 +278,8 @@ struct MenubarWindowView: View {
                 .environment(\.colorScheme, .dark)
                 .menuIndicator(.hidden)
             }
-            if viewmodel.airplayDelay {
+            if viewmodel.userDefaultStorage.airplayDelay {
                 Image(systemName: "airplayaudio")
-                    .opacity(0.8)
-            }
-            if viewmodel.spotifyConnectDelay {
-                Image(systemName: "tortoise")
                     .opacity(0.8)
             }
             truncationSlider
@@ -325,42 +294,9 @@ struct MenubarWindowView: View {
         .padding(.top, 8)
     }
     
-    var spotifyDelayBinding: Binding<Double> {
-        Binding(
-            get: { Double(viewmodel.userDefaultStorage.spotifyConnectDelayCount) },
-            set: { newValue in
-                let snapped = (round(newValue / 100) * 100)
-                viewmodel.userDefaultStorage.spotifyConnectDelayCount = Int(snapped)
-            }
-        )
-    }
-    
-    @ViewBuilder
-    var spotifyDelaySlider: some View {
-        @Bindable var viewmodel = viewmodel
-        HStack {
-            Image(systemName: "tortoise")
-                .frame(width: 34, alignment: .trailing)
-            Slider(value: spotifyDelayBinding, in: 300...3000, step: 100) {
-                Text("Spotify Delay")
-            }
-            .labelsHidden()
-            .frame(width: 160)
-            let seconds = Double(viewmodel.userDefaultStorage.spotifyConnectDelayCount) / 1000.0
-            Text("\(seconds.formatted(.number.precision(.fractionLength(1))))s")
-                .frame(width: 27)
-        }
-        .tint(.secondary)
-    }
-    
     var mainPage: some View {
         VStack {
             headerView
-            if viewmodel.spotifyConnectDelay {
-                Divider()
-                spotifyDelaySlider
-                    .environment(\.colorScheme, .dark)
-            }
             Divider()
             systemControlView
         }

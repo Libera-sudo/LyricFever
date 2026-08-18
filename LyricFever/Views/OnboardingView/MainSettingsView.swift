@@ -16,7 +16,6 @@ import SwiftUI
 import SDWebImageSwiftUI
 
 enum MainSettingsError: Error, Identifiable, CaseIterable {
-    case openSpotify
     case openAppleMusic
     case missingAuthorization
     case authorized
@@ -25,8 +24,6 @@ enum MainSettingsError: Error, Identifiable, CaseIterable {
     
     var description: LocalizedStringKey {
         switch self {
-        case .openSpotify:
-            return LocalizedStringKey("Please open Spotify!")
         case .openAppleMusic:
             return LocalizedStringKey("Please open Apple Music!")
         case .missingAuthorization:
@@ -40,8 +37,7 @@ enum MainSettingsError: Error, Identifiable, CaseIterable {
 struct MainSettingsView: View {
     @Environment(ViewModel.self) var viewModel
     @State var permissionDenied: Bool = false
-    @State var error: MainSettingsError = .openSpotify
-    @AppStorage("spotifyOrAppleMusic") var spotifyOrAppleMusic: Bool = false
+    @State var error: MainSettingsError = .openAppleMusic
     
     @ViewBuilder
     var permissionDeniedView: some View {
@@ -65,7 +61,7 @@ struct MainSettingsView: View {
         Text("Welcome to Lyric Fever! 🎉")
             .font(.largeTitle)
                     
-        Text("Please pick between Spotify and Apple Music")
+        Text("Please give Apple Music permissions")
             .font(.title)
     }
     
@@ -77,33 +73,16 @@ struct MainSettingsView: View {
                 .controlSize(.large)
                 .buttonStyle(.borderedProminent)
         } else {
-            HStack {
-                Button("Give Spotify Permissions") {
-                    if !viewModel.spotifyPlayer.isRunning {
-                        print("Spotify not running")
-                        error = .openSpotify
-                    } else if !viewModel.spotifyPlayer.isAuthorized {
-                        error = .openSpotify
-                        permissionDenied = true
-                    } else {
-                        permissionDenied = false
-                        error = .authorized
-                    }
+            Button("Give Apple Music Permissions") {
+                if !viewModel.appleMusicPlayer.isRunning {
+                    error = .openAppleMusic
+                } else if !viewModel.appleMusicPlayer.isAuthorized {
+                    error = .openAppleMusic
+                    permissionDenied = true
+                } else {
+                    permissionDenied = false
+                    error = .authorized
                 }
-                .disabled(viewModel.currentPlayer == .appleMusic)
-                
-                Button("Give Apple Music Permissions") {
-                    if !viewModel.appleMusicPlayer.isRunning {
-                        error = .openAppleMusic
-                    } else if !viewModel.appleMusicPlayer.isAuthorized {
-                        error = .openAppleMusic
-                        permissionDenied = true
-                    } else {
-                        permissionDenied = false
-                        error = .authorized
-                    }
-                }
-                .disabled(viewModel.currentPlayer == .spotify)
             }
         }
     }
@@ -121,25 +100,6 @@ struct MainSettingsView: View {
                 }
                 .transition(.fade)
                 
-                Picker("", selection: $spotifyOrAppleMusic) {
-                    VStack {
-                        Image("spotify")
-                            .resizable()
-                            .frame(width: 70.0, height: 70.0)
-                        Text("Spotify")
-                    }.tag(false)
-                    VStack {
-                        Image("music")
-                            .resizable()
-                            .frame(width: 70.0, height: 70.0)
-                        Text("Apple Music")
-                    }.tag(true)
-                }
-                .font(.title2)
-                .frame(width: 500)
-                .pickerStyle(.radioGroup)
-                .horizontalRadioGroupLayout()
-                            
                 Text(error.description)
                     .transition(.opacity)
                             
@@ -158,16 +118,6 @@ struct MainSettingsView: View {
             }
             .animation(.bouncy, value: permissionDenied)
             .animation(.bouncy, value: error)
-            .onChange(of: viewModel.currentPlayer) {
-                print("Updating permission booleans based on media player change")
-                switch viewModel.currentPlayer {
-                case .appleMusic:
-                        error = .openAppleMusic
-                case .spotify:
-                        error = .openSpotify
-                }
-            }
         }
     }
 }
-

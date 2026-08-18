@@ -9,7 +9,7 @@ import ScriptingBridge
 import MusicKit
 import AppKit
 
-class AppleMusicPlayer: Player {
+class AppleMusicPlayer {
     var appleMusicScript: MusicApplication? = SBApplication(bundleIdentifier: "com.apple.Music")
     var persistentID: String? {
         appleMusicScript?.currentTrack?.persistentID
@@ -35,7 +35,7 @@ class AppleMusicPlayer: Player {
             return nil
         }
         let viewmodel = ViewModel.shared
-        return playerPosition * 1000 + 400 + (viewmodel.airplayDelay ?  -2000 : 0)
+        return playerPosition * 1000 + 400 + (viewmodel.userDefaultStorage.airplayDelay ?  -2000 : 0)
     }
     var duration: Int? {
         guard let seconds = appleMusicScript?.currentTrack?.duration.map(Int.init) else {
@@ -63,22 +63,6 @@ class AppleMusicPlayer: Player {
         } else {
             return false
         }
-    }
-    
-    func togglePlayback() {
-        appleMusicScript?.playpause?()
-    }
-    func rewind() {
-        appleMusicScript?.previousTrack?()
-    }
-    func forward() {
-        appleMusicScript?.nextTrack?()
-    }
-
-    // No Spotify equivalent is known for an Apple Music track any more, so nothing here is
-    // shareable as a Spotify link.
-    func shareURL(for currentlyPlaying: String?) -> URL? {
-        nil
     }
     
     var artworkImage: NSImage?

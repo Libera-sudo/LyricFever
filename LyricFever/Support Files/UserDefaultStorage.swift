@@ -29,13 +29,16 @@ class UserDefaultStorage {
     #endif
     @ObservableUserDefault(.init(key: "romanize", defaultValue: false, store: .standard))
     @ObservationIgnored var romanize: Bool
+    // Persisted rather than a plain flag: it describes the listening setup, which does not
+    // change between launches, and resetting it each time silently put the lyrics two seconds
+    // ahead of AirPlay audio again.
+    @ObservableUserDefault(.init(key: "airplayDelay", defaultValue: false, store: .standard))
+    @ObservationIgnored var airplayDelay: Bool
     @ObservableUserDefault(.init(key: "romanizeMetadata", defaultValue: true, store: .standard))
     @ObservationIgnored var romanizeMetadata: Bool
     @ObservableUserDefault(.init(key: "chinesePreference", defaultValue: 0, store: .standard))
     @ObservationIgnored var chinesePreference: Int
     #if os(macOS)
-    @ObservableUserDefault(.init(key: "spotifyConnectDelayCount", defaultValue: 400, store: .standard))
-    @ObservationIgnored var spotifyConnectDelayCount: Int
     @ObservableUserDefault(.init(key: "hasMigrated", defaultValue: false, store: .standard))
     @ObservationIgnored var hasMigrated: Bool
     
@@ -43,11 +46,6 @@ class UserDefaultStorage {
     
     #endif
 
-    #if os(macOS)
-    // False: Spotify, True: Apple Music
-    @ObservableUserDefault(.init(key: "spotifyOrAppleMusic", defaultValue: false, store: .standard))
-    @ObservationIgnored var spotifyOrAppleMusic: Bool
-    #endif
     @ObservableUserDefault(.init(key: "hasOnboarded", defaultValue: false, store: .standard))
     @ObservationIgnored var hasOnboarded: Bool
     @ObservableUserDefault(.init(key: "hasTranslated", defaultValue: false, store: .standard))

@@ -18,11 +18,6 @@ extension NSScreen {
     }
 }
 
-enum MusicType {
-    case spotify
-    case appleMusic
-}
-
 @main
 struct LyricFever: App {
     @State var viewmodel = ViewModel.shared
@@ -38,28 +33,6 @@ struct LyricFever: App {
             // Text(Image) Doesn't render propertly in MenubarExtra. Stupid Apple. Must resort to if/else
             MenubarLabelView()
                 .environment(viewmodel)
-            .task(id: viewmodel.currentlyPlaying) {
-                if viewmodel.currentPlayer == .appleMusic {
-                    print("Ignoring currentlyPlaying task because Apple Music album art workaround is active. Apple please fix AppleScript support on Apple Music pleaasee.")
-                    return
-                }
-                if viewmodel.currentlyPlaying == nil {
-                    print("Incorrect task fired. Ignored on nil currentlyPlaying value")
-                    return
-                }
-                print("Artwork Fetch Service:Fetching new artwork image for currentlyPlaying change")
-                if let artworkImage = await viewmodel.currentPlayerInstance.artworkImage {
-                    print("Artwork Fetch Service: Fetched from player")
-                    viewmodel.artworkImage = artworkImage
-                } else if let artistName = viewmodel.currentlyPlayingArtist, let currentAlbumName = viewmodel.currentAlbumName {
-                    if let mbid = await MusicBrainzArtworkService.findMbid(albumName: currentAlbumName, artistName: artistName) {
-                        print("Artwork Fetch Service: MusicBrainz Success")
-                        viewmodel.artworkImage = await MusicBrainzArtworkService.artworkImage(for: mbid)
-                    }
-                } else {
-                    print("Artwork Fetch Service: couldn't grab mbid image nor player image")
-                }
-            }
             .task(id: viewmodel.userDefaultStorage.hasOnboarded) {
                 if !viewmodel.userDefaultStorage.hasOnboarded {
                     NSApplication.shared.activate(ignoringOtherApps: true)
@@ -85,9 +58,6 @@ struct LyricFever: App {
             }
             .onReceive(DistributedNotificationCenter.default().publisher(for: Notification.Name(rawValue:  "com.apple.Music.playerInfo"))) { notification in
                 viewmodel.appleMusicPlaybackDidChange(notification)
-            }
-            .onReceive(DistributedNotificationCenter.default().publisher(for: Notification.Name(rawValue:  "com.spotify.client.PlaybackStateChanged"))) { notification in
-                viewmodel.spotifyPlaybackDidChange(notification)
             }
             .translationTask(viewmodel.translationSessionConfig) { session in
                 await viewmodel.translationTask(session)
@@ -115,10 +85,6 @@ struct LyricFever: App {
             .onChange(of: viewmodel.userDefaultStorage.translate) {
                 // startTranslation() clears translatedLyric itself when translation is off.
                 viewmodel.startTranslation()
-            }
-            .onChange(of: viewmodel.currentPlayer) {
-                print("Setting hasOnboarded to false due to player change")
-                viewmodel.userDefaultStorage.hasOnboarded = false
             }
             .onChange(of: viewmodel.userDefaultStorage.hasOnboarded) {
                 if viewmodel.userDefaultStorage.hasOnboarded {

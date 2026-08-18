@@ -33,8 +33,6 @@ import MediaRemoteAdapter
 
     var currentlyPlaying: String?
     
-    var isStopped = false
-    
     var artworkImage: NSImage?
     var currentArtworkURL: URL?
 
@@ -59,9 +57,6 @@ import MediaRemoteAdapter
 //                } else {
 //                    self.appleMusicUniqueIdentifier = data.payload.uniqueIdentifier
 //                }
-                guard self.currentPlayer == .appleMusic else {
-                    return
-                }
                 guard let artwork = data?.payload.artwork else {
                     if self.currentlyPlaying == nil {
                         self.artworkImage = nil
@@ -103,27 +98,7 @@ import MediaRemoteAdapter
         return formatter.string(from: TimeInterval(totalSeconds)) ?? "0:00"
     }
     
-    #if os(macOS)
     var appleMusicPlayer = AppleMusicPlayer()
-    var spotifyPlayer = SpotifyPlayer()
-    #else
-    var currentTab = TabType.nowPlaying
-    var spotifyPlayer = TVSpotifyPlayer()
-    var hasWebApiOnboarded = false
-    #endif
-    
-    var currentPlayerInstance: Player {
-        #if os(macOS)
-        switch currentPlayer {
-            case .appleMusic:
-                return appleMusicPlayer
-            case .spotify:
-                return spotifyPlayer
-        }
-        #else
-        return spotifyPlayer
-        #endif
-    }
     
     #if os(macOS)
     var translationSessionConfig: TranslationSession.Configuration?
@@ -152,10 +127,7 @@ import MediaRemoteAdapter
     var chineseConversionLyrics: [String] = []
     var translatedLyric: [String] = []
     var showLyrics = true
-    #if os(macOS)
-    var spotifyConnectDelay: Bool = false
-    var airplayDelay: Bool = false
-    #endif
+
     var isFetchingTranslation = false
     var translationExists: Bool { !translatedLyric.isEmpty}
     // Tracks the in-flight local translation so a song change cancels the previous one
@@ -168,7 +140,6 @@ import MediaRemoteAdapter
     // Async Tasks (Lyrics fetch, Apple Music -> Spotify ID fetch, Lyrics Updater)
     private var currentFetchTask: Task<[LyricLine], Error>?
     private var currentLyricsUpdaterTask: Task<Void,Error>?
-    private var currentLyricsDriftFix: Task<Void,Error>?
     var isFetching = false
     private var currentAppleMusicFetchTask: Task<Void,Error>?
     
@@ -207,33 +178,11 @@ import MediaRemoteAdapter
     // Prevents flickering that occurs when we directly bind to currentlyPlayingLyrics.isEmpty()
     var lyricsIsEmptyPostLoad: Bool = true
     
-    #if os(macOS)
-    var currentPlayer: PlayerType {
-        get {
-            if self.userDefaultStorage.spotifyOrAppleMusic {
-                return .appleMusic
-            } else {
-                return .spotify
-            }
-        } set {
-            if newValue == .appleMusic {
-                self.userDefaultStorage.spotifyOrAppleMusic = true
-            } else {
-                self.userDefaultStorage.spotifyOrAppleMusic = false
-            }
-        }
-    }
-    #else
-    @ObservationIgnored var currentPlayer: Player {
-        return spotifyPlayer
-    }
-    #endif
-    
     var currentDuration: Int? {
-        currentPlayerInstance.duration
+        appleMusicPlayer.duration
     }
     var isPlayerRunning: Bool {
-        currentPlayerInstance.isRunning
+        appleMusicPlayer.isRunning
     }
     
     var lRCLyricProvider = LRCLIBLyricProvider()
@@ -280,8 +229,8 @@ import MediaRemoteAdapter
         }
         print("Application just started. lets check whats playing")
         
-        isPlaying = currentPlayerInstance.isPlaying
-        userDefaultStorage.hasOnboarded = currentPlayerInstance.isAuthorized
+        isPlaying = appleMusicPlayer.isPlaying
+        userDefaultStorage.hasOnboarded = appleMusicPlayer.isAuthorized
         KeyboardShortcuts.onKeyUp(for: .init("lyrics")) { [self] in
             showLyrics.toggle()
         }
@@ -325,11 +274,9 @@ import MediaRemoteAdapter
     #if os(macOS)
     func refreshLyrics() async throws {
         // todo: romanize
-        if currentPlayer == .appleMusic {
-            print("Refresh Lyrics: Re-deriving the Apple Music track key")
-            try await appleMusicFetch()
-        }
-        guard let currentlyPlaying, let currentlyPlayingName, let currentDuration = currentPlayerInstance.durationAsTimeInterval else {
+        print("Refresh Lyrics: Re-deriving the Apple Music track key")
+        try await appleMusicFetch()
+        guard let currentlyPlaying, let currentlyPlayingName, appleMusicPlayer.duration != nil else {
             return
         }
         print("Calling refresh lyrics")
@@ -532,11 +479,7 @@ import MediaRemoteAdapter
         }
     }
     
-    #if os(macOS)
     func appleMusicPlaybackDidChange(_ notification: Notification) {
-        guard currentPlayer == .appleMusic else {
-            return
-        }
         if notification.userInfo?["Player State"] as? String == "Playing" {
             print("is playing")
             isPlaying = true
@@ -560,42 +503,11 @@ import MediaRemoteAdapter
             self.currentlyPlayingName = currentlyPlayingName
             currentlyPlayingArtist = (notification.userInfo?["Artist"] as? String)
             currentAlbumName = (notification.userInfo?["Album"] as? String)
-            if let duration = currentPlayerInstance.duration {
+            if let duration = appleMusicPlayer.duration {
                 self.duration = duration
             }
             print("REOPEN: currentlyPlayingName is \(currentlyPlayingName)")
             currentlyPlayingAppleMusicPersistentID = appleMusicPlayer.persistentID
-        }
-    }
-    
-    func spotifyPlaybackDidChange(_ notification: Notification) {
-        guard currentPlayer == .spotify else {
-            return
-        }
-        if notification.userInfo?["Player State"] as? String == "Stopped" {
-            currentLyricsDriftFix?.cancel()
-            isPlaying = false
-            isStopped = true
-            return
-        }
-        isStopped = false
-        if notification.userInfo?["Player State"] as? String == "Playing" {
-            print("is playing")
-            isPlaying = true
-        } else {
-            print("paused. timer canceled")
-            isPlaying = false
-            // manually cancels the lyric-updater task bc media is paused
-        }
-        print(notification.userInfo?["Track ID"] as? String)
-        let currentlyPlaying = (notification.userInfo?["Track ID"] as? String)?.spotifyProcessedUrl()
-        let currentlyPlayingName = (notification.userInfo?["Name"] as? String)
-        if currentlyPlaying != "", currentlyPlayingName != "", let duration = currentPlayerInstance.duration {
-            self.currentlyPlaying = currentlyPlaying
-            self.currentlyPlayingName = currentlyPlayingName
-            self.currentlyPlayingArtist = spotifyPlayer.artistName
-            self.currentAlbumName = spotifyPlayer.albumName
-            self.duration = duration
         }
     }
     
@@ -625,43 +537,22 @@ import MediaRemoteAdapter
     }
     
     private func setCurrentProperties() {
-        switch currentPlayer {
-            case .appleMusic:
-                if let currentTrackName = appleMusicPlayer.trackName, let currentArtistName = appleMusicPlayer.artistName, let duration = appleMusicPlayer.duration, let currentAlbumName = appleMusicPlayer.albumName {
-                    // Don't set currentlyPlaying here: the persistentID change triggers appleMusicFetch, which derives the key
-                    if currentTrackName == "" {
-                        currentlyPlayingName = nil
-                        currentlyPlayingArtist = nil
-                        self.currentAlbumName = nil
-                    } else {
-                        currentlyPlayingName = currentTrackName
-                        currentlyPlayingArtist = currentArtistName
-                        self.duration = duration
-                        self.currentAlbumName = currentAlbumName
-                    }
-                    print("ON APPEAR HAS UPDATED APPLE MUSIC SONG ID")
-                    currentlyPlayingAppleMusicPersistentID = appleMusicPlayer.persistentID
-                }
-            case .spotify:
-                if let currentTrack = spotifyPlayer.trackID, let currentTrackName = spotifyPlayer.trackName, let currentArtistName =  spotifyPlayer.artistName, currentTrack != "", currentTrackName != "", let duration = spotifyPlayer.duration, let currentAlbumName = spotifyPlayer.albumName {
-                    currentlyPlaying = currentTrack
-                    currentlyPlayingName = currentTrackName
-                    currentlyPlayingArtist = currentArtistName
-                    self.duration = duration
-                    self.currentAlbumName = currentAlbumName
-                    self.currentTime = CurrentTimeWithStoredDate(currentTime: 0)
-                    print(currentTrack)
-                }
+        if let currentTrackName = appleMusicPlayer.trackName, let currentArtistName = appleMusicPlayer.artistName, let duration = appleMusicPlayer.duration, let currentAlbumName = appleMusicPlayer.albumName {
+            // Don't set currentlyPlaying here: the persistentID change triggers appleMusicFetch, which derives the key
+            if currentTrackName == "" {
+                currentlyPlayingName = nil
+                currentlyPlayingArtist = nil
+                self.currentAlbumName = nil
+            } else {
+                currentlyPlayingName = currentTrackName
+                currentlyPlayingArtist = currentArtistName
+                self.duration = duration
+                self.currentAlbumName = currentAlbumName
+            }
+            print("ON APPEAR HAS UPDATED APPLE MUSIC SONG ID")
+            currentlyPlayingAppleMusicPersistentID = appleMusicPlayer.persistentID
         }
     }
-    
-    #else
-    func setCurrentProperties() {
-        currentlyPlaying = spotifyPlayer.currentTrack?.uri?.spotifyProcessedUrl()
-        currentlyPlayingName = spotifyPlayer.trackName
-        currentlyPlayingArtist = spotifyPlayer.artistName
-    }
-    #endif
 
     func upcomingIndex(_ currentTime: Double) -> Int? {
         if let currentlyPlayingLyricsIndex {
@@ -693,7 +584,7 @@ import MediaRemoteAdapter
     
     func lyricUpdater() async throws {
         repeat {
-            guard let currentTime = currentPlayerInstance.currentTime, let lastIndex: Int = upcomingIndex(currentTime) else {
+            guard let currentTime = appleMusicPlayer.currentTime, let lastIndex: Int = upcomingIndex(currentTime) else {
                 stopLyricUpdater()
                 return
             }
@@ -729,7 +620,7 @@ import MediaRemoteAdapter
         }
         // If an index exists, we're unpausing: meaning we must instantly find the current lyric
         if currentlyPlayingLyricsIndex != nil {
-            guard let currentTime = currentPlayerInstance.currentTime, let lastIndex: Int = upcomingIndex(currentTime) else {
+            guard let currentTime = appleMusicPlayer.currentTime, let lastIndex: Int = upcomingIndex(currentTime) else {
                 stopLyricUpdater()
                 return
             }
@@ -738,19 +629,6 @@ import MediaRemoteAdapter
             if lastIndex > 0 {
                 currentlyPlayingLyricsIndex = lastIndex-1
             }
-        } else {
-            #if os(macOS)
-            if currentPlayer == .spotify {
-                currentLyricsDriftFix?.cancel()
-                currentLyricsDriftFix =             // Only run drift fix for new songs
-                Task {
-                    try await spotifyPlayer.fixSpotifyLyricDrift()
-                }
-                Task {
-                    try await currentLyricsDriftFix?.value
-                }
-            }
-            #endif
         }
         currentLyricsUpdaterTask = Task {
             do {
@@ -862,7 +740,7 @@ import MediaRemoteAdapter
                 throw FetchError.staleTrack
             }
             
-            guard let duration = currentPlayerInstance.duration else {
+            guard let duration = appleMusicPlayer.duration else {
                 print("FetchLyrics: Couldn't access current player duration. Giving up on netwokr fetch")
                 return []
             }
@@ -1080,7 +958,7 @@ import MediaRemoteAdapter
             return
         }
         print("Application just started (finished onboarding). lets check whats playing")
-        if currentPlayerInstance.isPlaying {
+        if appleMusicPlayer.isPlaying {
             isPlaying = true
         }
         setCurrentProperties()
