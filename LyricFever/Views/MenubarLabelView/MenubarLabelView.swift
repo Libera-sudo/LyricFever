@@ -11,6 +11,9 @@ import AppKit
 struct MenubarLabelView: View {
     @Environment(ViewModel.self) var viewmodel
 
+    /// How far the current line has travelled leftwards, in points.
+    @State private var scrollOffset: CGFloat = 0
+
     var menuBarTitle: String? {
         if viewmodel.userDefaultStorage.hasOnboarded {
             // Try to work through lyric logic if onboarded
@@ -51,7 +54,44 @@ struct MenubarLabelView: View {
         // lyric to show -- paused, between lines, instrumental passages -- and letting it
         // shrink the item back to icon width would reintroduce exactly the resize this whole
         // approach exists to avoid.
-        Image(nsImage: Self.render(menuBarTitle, width: viewmodel.menubarLyricWidth))
+        Image(nsImage: Self.render(menuBarTitle, width: viewmodel.menubarLyricWidth, scrolledBy: scrollOffset))
+            .task(id: ScrollKey(line: menuBarTitle, width: viewmodel.menubarLyricWidth)) {
+                await scrollThroughLine()
+            }
+    }
+
+    /// A line only scrolls when it is too long, and only once: lines are replaced every few
+    /// seconds anyway, so looping would restart a line the reader has already finished. It
+    /// rests at the head first -- the opening words are the ones being sung right now -- then
+    /// travels to the end and stays there.
+    ///
+    /// Nothing about this resizes the item. The canvas is a constant width and only the text
+    /// inside it moves, which is what makes scrolling safe here at all: a status item that
+    /// changes width gets repositioned by the system, visibly, in two steps.
+    private func scrollThroughLine() async {
+        scrollOffset = 0
+        let overflow = Self.overflow(of: menuBarTitle, within: viewmodel.menubarLyricWidth)
+        guard overflow > 0 else { return }
+        try? await Task.sleep(for: .seconds(1.2))
+        while scrollOffset < overflow {
+            if Task.isCancelled { return }
+            scrollOffset = min(scrollOffset + 1, overflow)
+            try? await Task.sleep(for: .milliseconds(33))
+        }
+    }
+
+    /// Identifies the thing being scrolled. The width belongs in here too: re-fitting the item
+    /// to a resized menu bar changes how much of the line overflows.
+    private struct ScrollKey: Equatable {
+        let line: String?
+        let width: CGFloat
+    }
+
+    /// How far past the canvas the line runs, in points. Zero when it fits.
+    static func overflow(of text: String?, within width: CGFloat) -> CGFloat {
+        guard let text else { return 0 }
+        let drawn = (text as NSString).size(withAttributes: [.font: NSFont.menuBarFont(ofSize: 0)]).width
+        return max(ceil(drawn) - width, 0)
     }
 
     /// Draws the lyric into a picture of a constant width instead of handing the menu bar a
@@ -72,26 +112,25 @@ struct MenubarLabelView: View {
     ///
     /// `isTemplate` hands colouring back to AppKit, so the lyric follows the menu bar the way
     /// the placeholder icon does, in light and dark alike.
-    static func render(_ text: String?, width: CGFloat) -> NSImage {
+    static func render(_ text: String?, width: CGFloat, scrolledBy offset: CGFloat = 0) -> NSImage {
         let height: CGFloat = 18
         let width = max(width, 1)
         let image = NSImage(size: NSSize(width: width, height: height))
         image.lockFocus()
         if let text {
-            let paragraph = NSMutableParagraphStyle()
-            paragraph.alignment = .right
-            paragraph.lineBreakMode = .byTruncatingTail
             let attributes: [NSAttributedString.Key: Any] = [
                 .font: NSFont.menuBarFont(ofSize: 0),
-                .foregroundColor: NSColor.black,
-                .paragraphStyle: paragraph
+                .foregroundColor: NSColor.black
             ]
             let line = text as NSString
-            let lineHeight = line.size(withAttributes: attributes).height
-            line.draw(
-                in: NSRect(x: 0, y: (height - lineHeight) / 2, width: width, height: lineHeight),
-                withAttributes: attributes
-            )
+            let drawn = line.size(withAttributes: attributes)
+            let y = (height - drawn.height) / 2
+            // A line that fits sits against the right edge, where the eye already is. One that
+            // does not starts at the left and is walked leftwards by `offset`; the canvas clips
+            // whatever hangs off either side.
+            let x = drawn.width <= width ? width - drawn.width : -offset
+            NSGraphicsContext.current?.cgContext.clip(to: CGRect(x: 0, y: 0, width: width, height: height))
+            line.draw(at: NSPoint(x: x, y: y), withAttributes: attributes)
         } else if let glyph = NSImage(systemSymbolName: "music.note.list", accessibilityDescription: nil) {
             // Right-aligned like the lyric, so the two never appear to shift when one replaces
             // the other.
