@@ -55,6 +55,6 @@ class UserDefaultStorage {
     // How much menu bar the lyric occupies, in points. A width rather than a character count:
     // the same forty characters are twice as wide in Chinese as in English, and it is the
     // width the user is actually budgeting.
-    @ObservableUserDefault(.init(key: "menubarWidth", defaultValue: 320, store: .standard))
+    @ObservableUserDefault(.init(key: "menubarWidth", defaultValue: 220, store: .standard))
     @ObservationIgnored var menubarWidth: Int
 }
