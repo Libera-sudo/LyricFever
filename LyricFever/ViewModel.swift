@@ -9,7 +9,6 @@ import Foundation
 #if os(macOS)
 #endif
 import CoreData
-import AmplitudeSwift
 import SwiftUI
 import MediaPlayer
 #if os(macOS)
@@ -167,9 +166,6 @@ import MediaRemoteAdapter
     // CoreData container (for saved lyrics)
     let coreDataContainer: NSPersistentContainer
     
-    // Logging / Analytics
-    let amplitude = Amplitude(configuration: .init(apiKey: amplitudeKey))
-    
     var isHearted = false
     
     // Async Tasks (Lyrics fetch, Apple Music -> Spotify ID fetch, Lyrics Updater)
@@ -313,7 +309,6 @@ import MediaRemoteAdapter
                 print("FetchAllNetworkLyrics: fetching from \(networkLyricProvider.providerName)")
                 let lyrics = try await networkLyricProvider.fetchNetworkLyrics(trackName: currentlyPlayingName, trackID: currentlyPlaying, currentlyPlayingArtist: currentlyPlayingArtist, currentAlbumName: currentAlbumName)
                 if !lyrics.lyrics.isEmpty {
-                    amplitude.track(eventType: "\(networkLyricProvider.providerName) Fetch")
                     print("FetchAllNetworkLyrics: returning lyrics from \(networkLyricProvider.providerName)")
                     // thats how i save to coredata
                     let _ = SongObject(from: lyrics.lyrics, with: coreDataContainer.viewContext, trackID: currentlyPlaying, trackName: currentlyPlayingName)
@@ -882,7 +877,6 @@ import MediaRemoteAdapter
         if checkCoreDataFirst, let lyrics = fetchFromCoreData(for: trackID) {
             print("ViewModel FetchLyrics: got lyrics from core data :D \(trackID) \(trackName)")
             try Task.checkCancellation()
-            amplitude.track(eventType: "CoreData Fetch")
             // verify non-stale trackID
             if initiatingTrackID != self.currentlyPlaying {
                 print("FetchLyrics: CoreData result stale (initiated: \(initiatingTrackID), current: \(self.currentlyPlaying ?? "nil")). Throwing.")

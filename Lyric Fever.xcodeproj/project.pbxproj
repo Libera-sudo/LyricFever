@@ -16,8 +16,6 @@
 		8F2922C12E94DEFF00B286FC /* MediaRemoteAdapter in Embed Frameworks */ = {isa = PBXBuildFile; productRef = 8F2922BF2E94DE0700B286FC /* MediaRemoteAdapter */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		8F37323D2E6EC9C90075CDA7 /* OpenCC in Frameworks */ = {isa = PBXBuildFile; productRef = 8F37323C2E6EC9C90075CDA7 /* OpenCC */; };
 		8F4F49522A7EC32D00097888 /* (null) in Sources */ = {isa = PBXBuildFile; };
-		8F6BD2952A8A61C9008BBF88 /* AmplitudeSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 8F6BD2942A8A61C9008BBF88 /* AmplitudeSwift */; };
-		8F6BD2972A8A6278008BBF88 /* amplitudeKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F6BD2962A8A6278008BBF88 /* amplitudeKey.swift */; };
 		8F6BD2992A8A6B7D008BBF88 /* ViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F6BD2982A8A6B7D008BBF88 /* ViewModel.swift */; };
 		8F8196872D93CCDC00F03741 /* StringMetric in Frameworks */ = {isa = PBXBuildFile; productRef = 8F8196862D93CCDC00F03741 /* StringMetric */; };
 		8F89E1112C90DA4900F511EB /* LaunchAtLogin in Frameworks */ = {isa = PBXBuildFile; productRef = 8F89E1102C90DA4900F511EB /* LaunchAtLogin */; };
@@ -48,7 +46,6 @@
 /* Begin PBXFileReference section */
 		8F0D66DB2E99CC5D00976881 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		8F1198732E72B9C50011A962 /* GlobalKeyboardShortcutsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlobalKeyboardShortcutsView.swift; sourceTree = "<group>"; };
-		8F6BD2962A8A6278008BBF88 /* amplitudeKey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = amplitudeKey.swift; sourceTree = "<group>"; };
 		8F6BD2982A8A6B7D008BBF88 /* ViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewModel.swift; sourceTree = "<group>"; };
 		8FA436AD2BC49D480072016C /* newPermissionMac.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = newPermissionMac.gif; sourceTree = "<group>"; };
 		8FC8E9452A704EEB00F69915 /* Lyric Fever.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Lyric Fever.app"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -93,7 +90,6 @@
 				8FFA9F342AA1B3CB00BAEC5C /* SDWebImageSwiftUI in Frameworks */,
 				8F89E1112C90DA4900F511EB /* LaunchAtLogin in Frameworks */,
 				8F2922C02E94DE0700B286FC /* MediaRemoteAdapter in Frameworks */,
-				8F6BD2952A8A61C9008BBF88 /* AmplitudeSwift in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -141,7 +137,6 @@
 				8FC8E9482A704EEB00F69915 /* LyricFever.swift */,
 				8F1198732E72B9C50011A962 /* GlobalKeyboardShortcutsView.swift */,
 				8F6BD2982A8A6B7D008BBF88 /* ViewModel.swift */,
-				8F6BD2962A8A6278008BBF88 /* amplitudeKey.swift */,
 			);
 			path = LyricFever;
 			sourceTree = "<group>";
@@ -173,7 +168,6 @@
 			);
 			name = "Lyric Fever";
 			packageProductDependencies = (
-				8F6BD2942A8A61C9008BBF88 /* AmplitudeSwift */,
 				8FFA9F332AA1B3CB00BAEC5C /* SDWebImageSwiftUI */,
 				8F89E1102C90DA4900F511EB /* LaunchAtLogin */,
 				8FA4E9772CE73DB900CEEF35 /* ColorKit */,
@@ -217,7 +211,6 @@
 			);
 			mainGroup = 8FC8E93C2A704EEB00F69915;
 			packageReferences = (
-				8F6BD2932A8A61C8008BBF88 /* XCRemoteSwiftPackageReference "Amplitude-Swift" */,
 				8FFA9F322AA1B3CB00BAEC5C /* XCRemoteSwiftPackageReference "SDWebImageSwiftUI" */,
 				8F89E10F2C90DA4900F511EB /* XCRemoteSwiftPackageReference "LaunchAtLogin-Modern" */,
 				8FA4E9762CE73DB900CEEF35 /* XCRemoteSwiftPackageReference "ColorKit-macOS" */,
@@ -257,7 +250,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				8F6BD2972A8A6278008BBF88 /* amplitudeKey.swift in Sources */,
 				8F4F49522A7EC32D00097888 /* (null) in Sources */,
 				8F6BD2992A8A6B7D008BBF88 /* ViewModel.swift in Sources */,
 				8FC8E9492A704EEB00F69915 /* LyricFever.swift in Sources */,
@@ -526,14 +518,6 @@
 				kind = branch;
 			};
 		};
-		8F6BD2932A8A61C8008BBF88 /* XCRemoteSwiftPackageReference "Amplitude-Swift" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/amplitude/Amplitude-Swift";
-			requirement = {
-				branch = main;
-				kind = branch;
-			};
-		};
 		8F8196852D93CCDC00F03741 /* XCRemoteSwiftPackageReference "StringMetric" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/autozimu/StringMetric.swift";
@@ -609,11 +593,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 8F37323B2E6EC9C90075CDA7 /* XCRemoteSwiftPackageReference "SwiftyOpenCC" */;
 			productName = OpenCC;
-		};
-		8F6BD2942A8A61C9008BBF88 /* AmplitudeSwift */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 8F6BD2932A8A61C8008BBF88 /* XCRemoteSwiftPackageReference "Amplitude-Swift" */;
-			productName = AmplitudeSwift;
 		};
 		8F8196862D93CCDC00F03741 /* StringMetric */ = {
 			isa = XCSwiftPackageProductDependency;
