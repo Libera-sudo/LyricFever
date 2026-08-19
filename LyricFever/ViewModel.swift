@@ -218,13 +218,14 @@ import MediaRemoteAdapter
     
     var lRCLyricProvider = LRCLIBLyricProvider()
     var netEaseLyricProvider = NetEaseLyricProvider()
+    var qqMusicLyricProvider = QQMusicLyricProvider()
     #if os(macOS)
     var localFileUploadProvider = LocalFileUploadProvider()
     #endif
-    @ObservationIgnored lazy var allNetworkLyricProviders: [LyricProvider] = [lRCLyricProvider, netEaseLyricProvider]
+    @ObservationIgnored lazy var allNetworkLyricProviders: [LyricProvider] = [lRCLyricProvider, netEaseLyricProvider, qqMusicLyricProvider]
     
     // custom order because LRCLIB is tweaking for the time being
-    @ObservationIgnored lazy var allNetworkLyricProvidersForSearch: [LyricProvider] = [netEaseLyricProvider, lRCLyricProvider]
+    @ObservationIgnored lazy var allNetworkLyricProvidersForSearch: [LyricProvider] = [netEaseLyricProvider, qqMusicLyricProvider, lRCLyricProvider]
     
     var isFirstFetch = true
     
