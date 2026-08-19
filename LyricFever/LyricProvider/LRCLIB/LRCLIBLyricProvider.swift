@@ -19,7 +19,8 @@ class LRCLIBLyricProvider: LyricProvider {
         LRCLIBUserAgentSession = URLSession(configuration: LRCLIBUserAgentConfig)
     }
     
-    func fetchNetworkLyrics(trackName: String, trackID: String, currentlyPlayingArtist: String?, currentAlbumName: String?) async throws -> NetworkFetchReturn {
+    func fetchNetworkLyrics(trackName: String, trackID: String, currentlyPlayingArtist: String?, currentAlbumName: String?, duration: Int?) async throws -> NetworkFetchReturn {
+        // LRCLIB matches on metadata alone, so duration is intentionally ignored.
         guard let currentlyPlayingArtist, let currentAlbumName else {
             print("artist or album missing")
             return NetworkFetchReturn(lyrics: [])

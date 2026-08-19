@@ -9,9 +9,8 @@ protocol LyricProvider {
     var providerName: String { get }
     
     @MainActor
-    func fetchNetworkLyrics(trackName: String, trackID: String, currentlyPlayingArtist: String?, currentAlbumName: String? ) async throws -> NetworkFetchReturn
+    func fetchNetworkLyrics(trackName: String, trackID: String, currentlyPlayingArtist: String?, currentAlbumName: String?, duration: Int?) async throws -> NetworkFetchReturn
 
     @MainActor
     func search(trackName: String, artistName: String) async throws -> [SongResult]
 }
-

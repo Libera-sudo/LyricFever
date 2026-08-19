@@ -283,7 +283,7 @@ import MediaRemoteAdapter
         for networkLyricProvider in allNetworkLyricProviders {
             do {
                 print("FetchAllNetworkLyrics: fetching from \(networkLyricProvider.providerName)")
-                let lyrics = try await networkLyricProvider.fetchNetworkLyrics(trackName: currentlyPlayingName, trackID: currentlyPlaying, currentlyPlayingArtist: currentlyPlayingArtist, currentAlbumName: currentAlbumName)
+                let lyrics = try await networkLyricProvider.fetchNetworkLyrics(trackName: currentlyPlayingName, trackID: currentlyPlaying, currentlyPlayingArtist: currentlyPlayingArtist, currentAlbumName: currentAlbumName, duration: duration > 0 ? duration : nil)
                 if !lyrics.lyrics.isEmpty {
                     print("FetchAllNetworkLyrics: returning lyrics from \(networkLyricProvider.providerName)")
                     // thats how i save to coredata

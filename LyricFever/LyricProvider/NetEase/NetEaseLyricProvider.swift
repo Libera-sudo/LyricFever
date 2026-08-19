@@ -45,52 +45,77 @@ class NetEaseLyricProvider: LyricProvider {
         fakeSpotifyUserAgentSession = URLSession(configuration: fakeSpotifyUserAgentconfig)
     }
     
-    func fetchNetworkLyrics(trackName: String, trackID: String, currentlyPlayingArtist: String?, currentAlbumName: String? ) async throws -> NetworkFetchReturn {
-        if let currentlyPlayingArtist, let currentAlbumName, let url = Self.searchURL(trackName: trackName, artistName: currentlyPlayingArtist, limit: 1) {
+    func fetchNetworkLyrics(trackName: String, trackID: String, currentlyPlayingArtist: String?, currentAlbumName: String?, duration: Int?) async throws -> NetworkFetchReturn {
+        if let currentlyPlayingArtist, let currentAlbumName, let url = Self.searchURL(trackName: trackName, artistName: currentlyPlayingArtist, limit: 8) {
             print("the netease search call is \(url.absoluteString)")
             let request = URLRequest(url: url)
             let urlResponseAndData = try await fakeSpotifyUserAgentSession.data(for: request)
             let neteasesearch = try JSONDecoder().decode(NetEaseSearch.self, from: urlResponseAndData.0)
-            print(neteasesearch)
-            guard let neteaseResult = neteasesearch.result.songs.first, let neteaseArtist = neteaseResult.artists.first else {
-                return NetworkFetchReturn(lyrics: [])
-            }
-            let neteaseId = neteaseResult.id
-            let conditions = [
-                trackName.distance(between: neteaseResult.name) > 0.75,
-                currentlyPlayingArtist.distance(between: neteaseArtist.name) > 0.75,
-                currentAlbumName.distance(between: neteaseResult.album.name) > 0.75
-            ]
+            print("NetEase: \(neteasesearch.result.songs.count) candidates")
 
-            let trueCount = conditions.filter { $0 }.count
-            print("Similarity index: for track \(trackName) and netease reply \(neteaseResult.name) is \(trackName.distance(between: neteaseResult.name))")
-            print("Similarity index: for album \(currentAlbumName) and netease reply \(neteaseResult.album.name) is \(currentAlbumName.distance(between: neteaseResult.album.name))")
-            print("Similarity index: for artist \(currentlyPlayingArtist) and netease reply \(neteaseArtist.name) is \(currentlyPlayingArtist.distance(between: neteaseArtist.name))")
-            // I need at least 2 conditions to be met: track name, or album, or artist name, match 75% of the way
-            if trueCount < 2 {
-                print("similarity conditions passed for NetEase: \(trueCount) is less than 2, therefore failing this NetEase search.")
-                return NetworkFetchReturn(lyrics: [])
+            var acceptableCandidates: [(song: NetEaseSearch.Result.Song, durationDifference: Int?, ground: String, order: Int)] = []
+            for (order, neteaseResult) in neteasesearch.result.songs.enumerated() {
+                guard let neteaseArtist = neteaseResult.artists.first else { continue }
+
+                let trackSimilarity = trackName.distance(between: neteaseResult.name)
+                let albumSimilarity = currentAlbumName.distance(between: neteaseResult.album.name)
+                let artistSimilarity = currentlyPlayingArtist.distance(between: neteaseArtist.name)
+                let trueCount = [trackSimilarity, artistSimilarity, albumSimilarity].filter { $0 > 0.75 }.count
+                let durationDifference = duration.map { abs($0 - neteaseResult.duration) }
+                let durationMatches = durationDifference.map { $0 <= 2_000 } ?? false
+                let textMatches = trueCount >= 2
+
+                print("Similarity index: for track \(trackName) and netease reply \(neteaseResult.name) is \(trackSimilarity)")
+                print("Similarity index: for album \(currentAlbumName) and netease reply \(neteaseResult.album.name) is \(albumSimilarity)")
+                print("Similarity index: for artist \(currentlyPlayingArtist) and netease reply \(neteaseArtist.name) is \(artistSimilarity)")
+
+                guard durationMatches || textMatches else {
+                    print("similarity conditions passed for NetEase: \(trueCount) is less than 2 and duration does not match, therefore failing this NetEase candidate.")
+                    continue
+                }
+
+                let ground: String
+                if durationMatches && textMatches {
+                    ground = "duration and text agreement"
+                } else if durationMatches {
+                    ground = "duration agreement"
+                } else {
+                    ground = "text agreement"
+                }
+                acceptableCandidates.append((neteaseResult, durationDifference, ground, order))
             }
-            guard let lyricURL = Self.lyricURL(songID: neteaseId) else {
-                return NetworkFetchReturn(lyrics: [])
+
+            acceptableCandidates.sort {
+                switch ($0.durationDifference, $1.durationDifference) {
+                case let (lhs?, rhs?) where lhs != rhs:
+                    return lhs < rhs
+                case (_?, nil):
+                    return true
+                case (nil, _?):
+                    return false
+                default:
+                    return $0.order < $1.order
+                }
             }
-            let lyricRequest = URLRequest(url: lyricURL)
-            let urlResponseAndDataLyrics = try await fakeSpotifyUserAgentSession.data(for: lyricRequest)
-            let neteaseLyrics = try JSONDecoder().decode(NetEaseLyrics.self, from: urlResponseAndDataLyrics.0)
-            guard let neteaselrc = neteaseLyrics.lrc, let neteaseLrcString = neteaselrc.lyric else {
-                return NetworkFetchReturn(lyrics: [])
+
+            for candidate in acceptableCandidates {
+                guard let lyricURL = Self.lyricURL(songID: candidate.song.id) else { continue }
+                let lyricRequest = URLRequest(url: lyricURL)
+                let urlResponseAndDataLyrics = try await fakeSpotifyUserAgentSession.data(for: lyricRequest)
+                let neteaseLyrics = try JSONDecoder().decode(NetEaseLyrics.self, from: urlResponseAndDataLyrics.0)
+                guard let neteaselrc = neteaseLyrics.lrc, let neteaseLrcString = neteaselrc.lyric else { continue }
+
+                // Sanitize HTML entities and stray escapes before parsing
+                let cleaned = unescapeHTMLEntities(in: neteaseLrcString)
+
+                let parser = LyricsParser(lyrics: cleaned)
+                // NetEase incorrectly advertises lyrics for EVERY song when it only has the name, artist, composer at 0.0 *sigh*
+                if parser.lyrics.last?.startTimeMS == 0.0 {
+                    continue
+                }
+                print("NetEase chose candidate \(candidate.song.name) by \(candidate.ground).")
+                return NetworkFetchReturn(lyrics: parser.lyrics)
             }
-            
-            // Sanitize HTML entities and stray escapes before parsing
-            let cleaned = unescapeHTMLEntities(in: neteaseLrcString)
-            
-            let parser = LyricsParser(lyrics: cleaned)
-            print(parser.lyrics)
-            // NetEase incorrectly advertises lyrics for EVERY song when it only has the name, artist, composer at 0.0 *sigh*
-            if parser.lyrics.last?.startTimeMS == 0.0 {
-                return NetworkFetchReturn(lyrics: [])
-            }
-            return NetworkFetchReturn(lyrics: parser.lyrics)
         }
         return NetworkFetchReturn(lyrics: [])
     }
