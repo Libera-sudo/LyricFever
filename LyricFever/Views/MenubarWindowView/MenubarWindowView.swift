@@ -62,14 +62,6 @@ struct MenubarWindowView: View {
             }
             
             ZStack {
-                if viewmodel.isFetching {
-                    Rectangle()
-                        .fill(Color.black.opacity(0.5))
-                        .clipShape(.rect(cornerRadius: 9))
-                    
-                    ProgressView()
-                        .environment(\.colorScheme, .dark)
-                }
             }
             .animation(.smooth(duration: 2), value: viewmodel.isFetching)
         }
@@ -180,7 +172,8 @@ struct MenubarWindowView: View {
     @ViewBuilder
     var lyricControls: some View {
         HStack {
-            SmallMenubarButton(buttonText: "", imageText: "music.note.list", buttonState: displayLyrics, slashed: !viewmodel.showLyrics) {
+            SmallMenubarButton(buttonText: "", imageText: "music.note.list", buttonState: displayLyrics,
+                               slashed: !viewmodel.showLyrics, spinning: viewmodel.isFetching) {
                 viewmodel.showLyrics.toggle()
             }
             SmallMenubarButton(buttonText: "", imageText: "magnifyingglass", buttonState: searchState) {
