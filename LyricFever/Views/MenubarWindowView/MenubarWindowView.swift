@@ -29,20 +29,8 @@ struct MenubarWindowView: View {
         case moreOptions
         case settings
         case translationSettings
-        case romanization
-        case languageChoice(LanguageChoice)
-    }
-
-    enum LanguageChoice: Equatable {
-        case sourceForThisSong
-        case targetForAllSongs
-
-        var title: String {
-            switch self {
-                case .sourceForThisSong: "Source Language"
-                case .targetForAllSongs: "Target Language"
-            }
-        }
+        case translationLanguages
+        case chineseConversion
     }
 
     @State var page: Page = .main
@@ -148,6 +136,10 @@ struct MenubarWindowView: View {
                 return .loading
             } else if viewmodel.translationExists {
                 return .enabled
+            } else if viewmodel.translationAlreadyInTargetLanguage {
+                // Nothing was translated and nothing went wrong: the lyrics were already in the
+                // target language. `.missing` would put a warning mark on a working feature.
+                return .enabled
             } else {
                 return .missing
             }
@@ -172,21 +164,9 @@ struct MenubarWindowView: View {
         }
     }
 
-    var romanizationSummary: String {
-        let romanization = viewmodel.userDefaultStorage.romanize ? "On" : "Off"
-        guard let conversion = ChineseConversion(rawValue: viewmodel.userDefaultStorage.chinesePreference),
-              conversion != .none else {
-            return romanization
-        }
-
-        let conversionLabel = switch conversion {
-            case .none: ""
-            case .simplified: "Simplified"
-            case .traditionalNeutral: "Trad. Neutral"
-            case .traditionalTaiwan: "Trad. Taiwan"
-            case .traditionalHK: "Trad. HK"
-        }
-        return "\(romanization) · \(conversionLabel)"
+    var chineseConversionLabel: String {
+        ChineseConversion(rawValue: viewmodel.userDefaultStorage.chinesePreference)?.description
+            ?? ChineseConversion.none.description
     }
     
     var searchState: ButtonState {
@@ -451,37 +431,30 @@ struct MenubarWindowView: View {
         VStack(alignment: .leading, spacing: 8) {
             pageHeader("Translation", back: .main)
             Divider()
-            Toggle("Translate to \(viewmodel.userLocaleLanguageString)", isOn: $viewmodel.userDefaultStorage.translate)
+            Toggle("Translate", isOn: $viewmodel.userDefaultStorage.translate)
                 .disabled(!viewmodel.userDefaultStorage.hasOnboarded)
             if viewmodel.userDefaultStorage.translate {
                 Text(status)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-            disclosureRow("Source (this song)", value: sourceLanguageLabel) {
-                navigate(to: .languageChoice(.sourceForThisSong))
+            disclosureRow("Translate", value: "\(sourceLanguageLabel) → \(viewmodel.userLocaleLanguageString)") {
+                navigate(to: .translationLanguages)
             }
-            disclosureRow("Target (all songs)", value: viewmodel.userLocaleLanguageString) {
-                navigate(to: .languageChoice(.targetForAllSongs))
-            }
-            Divider()
-            disclosureRow("Romanization", value: romanizationSummary) {
-                navigate(to: .romanization)
+            Toggle("Romanize", isOn: $viewmodel.userDefaultStorage.romanize)
+            disclosureRow("Chinese Conversion", value: chineseConversionLabel) {
+                navigate(to: .chineseConversion)
             }
         }
         .frame(width: 300)
     }
 
     @ViewBuilder
-    var romanizationPage: some View {
+    var chineseConversionPage: some View {
         @Bindable var viewmodel = viewmodel
         VStack(alignment: .leading, spacing: 8) {
-            pageHeader("Romanization", back: .translationSettings)
+            pageHeader("Chinese Conversion", back: .translationSettings)
             Divider()
-            Toggle("Romanize", isOn: $viewmodel.userDefaultStorage.romanize)
-            Text("Chinese Conversion")
-                .font(.caption)
-                .foregroundStyle(.secondary)
             ForEach(ChineseConversion.allCases) { conversion in
                 choiceRow(conversion.description,
                           selected: viewmodel.userDefaultStorage.chinesePreference == conversion.rawValue) {
@@ -498,36 +471,45 @@ struct MenubarWindowView: View {
     /// Uses List rather than ScrollView + VStack: a probe build showed the same Button firing
     /// reliably outside a ScrollView and never inside one, so the ScrollView was swallowing the
     /// clicks. List is backed by AppKit's own scrolling table, which routes them properly.
-    func languageChoicePage(_ choice: LanguageChoice) -> some View {
+    var translationLanguagesPage: some View {
         // Read the current value once instead of per row.
         let currentTarget = viewmodel.translationTargetLanguage
         let currentSource = viewmodel.translationSourceLanguage
 
-        return VStack(alignment: .leading, spacing: 6) {
-            pageHeader(choice.title, back: .translationSettings)
+        VStack(alignment: .leading, spacing: 6) {
+            pageHeader("Translate", back: .translationSettings)
             Divider()
             List {
-                switch choice {
-                    case .sourceForThisSong:
-                        choiceRow("Auto", selected: currentSource == nil) {
-                            setSourceLanguage(nil)
-                        }
-                        ForEach(supportedLanguages, id: \.maximalIdentifier) { language in
-                            choiceRow(languageLabel(language),
-                                      selected: currentSource?.maximalIdentifier == language.maximalIdentifier) {
-                                setSourceLanguage(language)
-                            }
-                        }
-                    case .targetForAllSongs:
-                        choiceRow("System (\(viewmodel.systemLocaleString))", selected: currentTarget == nil) {
-                            viewmodel.translationTargetLanguage = nil
-                        }
-                        ForEach(supportedLanguages, id: \.maximalIdentifier) { language in
-                            choiceRow(languageLabel(language),
-                                      selected: currentTarget?.maximalIdentifier == language.maximalIdentifier) {
-                                viewmodel.translationTargetLanguage = language
-                            }
-                        }
+                Text("Source (this song)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
+                choiceRow("Auto", selected: currentSource == nil) {
+                    setSourceLanguage(nil)
+                }
+                ForEach(supportedLanguages, id: \.maximalIdentifier) { language in
+                    choiceRow(languageLabel(language),
+                              selected: currentSource?.maximalIdentifier == language.maximalIdentifier) {
+                        setSourceLanguage(language)
+                    }
+                }
+                Divider()
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
+                Text("Target (all songs)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
+                choiceRow("System (\(viewmodel.systemLocaleString))", selected: currentTarget == nil) {
+                    viewmodel.translationTargetLanguage = nil
+                }
+                ForEach(supportedLanguages, id: \.maximalIdentifier) { language in
+                    choiceRow(languageLabel(language),
+                              selected: currentTarget?.maximalIdentifier == language.maximalIdentifier) {
+                        viewmodel.translationTargetLanguage = language
+                    }
                 }
             }
             .listStyle(.plain)
@@ -548,10 +530,10 @@ struct MenubarWindowView: View {
                     settingsPage
                 case .translationSettings:
                     translationSettingsPage
-                case .romanization:
-                    romanizationPage
-                case .languageChoice(let choice):
-                    languageChoicePage(choice)
+                case .translationLanguages:
+                    translationLanguagesPage
+                case .chineseConversion:
+                    chineseConversionPage
             }
         }
         // Each page keeps its natural height through the change. Without this the two pages
