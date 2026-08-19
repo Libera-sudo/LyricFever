@@ -162,7 +162,10 @@ struct MenubarLabelView: View {
             let x = drawn.width <= width ? width - drawn.width : -offset
             NSGraphicsContext.current?.cgContext.clip(to: CGRect(x: 0, y: 0, width: width, height: height))
             line.draw(at: NSPoint(x: x, y: y), withAttributes: attributes)
-        } else if let glyph = NSImage(systemSymbolName: "music.note.list", accessibilityDescription: nil) {
+        } else if let glyph = NSImage(systemSymbolName: "waveform", accessibilityDescription: nil) {
+            // Stands in during instrumental passages, the gaps between lines, and while paused.
+            // A waveform reads as "sound is still happening" rather than as a broken state,
+            // which a list-of-notes icon sitting where words used to be does not.
             // Right-aligned like the lyric, so the two never appear to shift when one replaces
             // the other.
             let size = glyph.size
