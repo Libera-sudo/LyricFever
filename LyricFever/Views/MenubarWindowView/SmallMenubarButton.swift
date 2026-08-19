@@ -11,16 +11,11 @@ public struct SmallMenubarButtonStyle: ButtonStyle {
     let imageText: String
     let buttonState: ButtonState
     let slashed: Bool
-    /// Turns the icon while work is in flight. The artwork used to carry that job, but dimming
-    /// and spinning over the album art hid the one thing on the panel worth looking at.
-    var spinning: Bool = false
-    @State private var spinAngle: Double = 0
 
-    init(imageText: String, buttonState: ButtonState, slashed: Bool = false, spinning: Bool = false) {
+    init(imageText: String, buttonState: ButtonState, slashed: Bool = false) {
         self.imageText = imageText
         self.buttonState = buttonState
         self.slashed = slashed
-        self.spinning = spinning
     }
     
     var disabled: Bool {
@@ -39,16 +34,6 @@ public struct SmallMenubarButtonStyle: ButtonStyle {
                         Image(systemName: imageText)
                             .controlSize(buttonState == .missing ? .small : .regular)
                             .bold(buttonState != .missing)
-                            .rotationEffect(.degrees(spinAngle))
-                            .onChange(of: spinning, initial: true) {
-                                if spinning {
-                                    withAnimation(.linear(duration: 1.1).repeatForever(autoreverses: false)) {
-                                        spinAngle = 360
-                                    }
-                                } else {
-                                    withAnimation(.smooth(duration: 0.2)) { spinAngle = 0 }
-                                }
-                            }
                         if buttonState == .missing {
                             UnavailableBadge()
                         }
@@ -92,7 +77,6 @@ public struct SmallMenubarButton: View {
     let imageText: String
     let buttonState: ButtonState
     let slashed: Bool
-    let spinning: Bool
     let onClick: () -> Void
 
     init(
@@ -100,14 +84,12 @@ public struct SmallMenubarButton: View {
         imageText: String,
         buttonState: ButtonState,
         slashed: Bool = false,
-        spinning: Bool = false,
         onClick: @escaping () -> Void
     ) {
         self.buttonText = buttonText
         self.imageText = imageText
         self.buttonState = buttonState
         self.slashed = slashed
-        self.spinning = spinning
         self.onClick = onClick
     }
     
@@ -121,7 +103,7 @@ public struct SmallMenubarButton: View {
         } label: {
             EmptyView()
         }
-        .buttonStyle(SmallMenubarButtonStyle(imageText: imageText, buttonState: buttonState, slashed: slashed, spinning: spinning))
+        .buttonStyle(SmallMenubarButtonStyle(imageText: imageText, buttonState: buttonState, slashed: slashed))
         .disabled(disabled)
         .buttonStyle(.borderless)
     }

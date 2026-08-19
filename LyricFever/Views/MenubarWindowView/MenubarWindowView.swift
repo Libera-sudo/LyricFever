@@ -109,6 +109,9 @@ struct MenubarWindowView: View {
             return .disabled
         } else if !viewmodel.showLyrics {
             return .clickable
+        } else if viewmodel.isFetching {
+            // The spinner the artwork used to carry, moved onto the thing being fetched.
+            return .loading
         } else if viewmodel.lyricsIsEmptyPostLoad {
             return .missing
         } else {
@@ -173,7 +176,7 @@ struct MenubarWindowView: View {
     var lyricControls: some View {
         HStack {
             SmallMenubarButton(buttonText: "", imageText: "music.note.list", buttonState: displayLyrics,
-                               slashed: !viewmodel.showLyrics, spinning: viewmodel.isFetching) {
+                               slashed: !viewmodel.showLyrics) {
                 viewmodel.showLyrics.toggle()
             }
             SmallMenubarButton(buttonText: "", imageText: "magnifyingglass", buttonState: searchState) {
