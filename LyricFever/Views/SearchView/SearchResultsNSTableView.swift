@@ -48,9 +48,12 @@ struct SearchResultsNSTableView: NSViewRepresentable {
         tableView.backgroundColor = .clear
         tableView.usesAlternatingRowBackgroundColors = false
         tableView.allowsColumnResizing = true
-        // Only the trailing column stretches when the table does, which leaves every divider
-        // free to mean exactly what the user dragged it to.
-        tableView.columnAutoresizingStyle = .lastColumnOnlyAutoresizingStyle
+        // No redistribution at all: widening one column widens the table, and the scroll view
+        // carries the overflow. Letting the trailing column absorb the difference instead meant
+        // a drag shoved its neighbours out of view -- the width had to come from somewhere, and
+        // taking it from the columns on the right is what pushed their contents off the edge.
+        // This is how Finder's list view behaves.
+        tableView.columnAutoresizingStyle = .noColumnAutoresizing
         // Row separators. The alternating row fill that used to do this job was dropped when the
         // table went transparent -- opaque stripes cannot sit over a material. A hairline in
         // `separatorColor` can: it is vibrancy-aware, so it stays visible against whatever the
@@ -59,11 +62,14 @@ struct SearchResultsNSTableView: NSViewRepresentable {
         tableView.gridColor = .separatorColor
         // Widths are the user's decision once they have made it, so remember them rather than
         // resetting to the defaults above every time the window opens.
-        tableView.autosaveName = "SearchResultsColumns2"
+        tableView.autosaveName = "SearchResultsColumns3"
         tableView.autosaveTableColumns = true
 
         scrollView.documentView = tableView
         scrollView.hasVerticalScroller = true
+        // The table is now free to be wider than the window, so it needs a way to reach the rest.
+        scrollView.hasHorizontalScroller = true
+        scrollView.autohidesScrollers = true
         scrollView.backgroundColor = .clear
         scrollView.drawsBackground = false
         return scrollView
