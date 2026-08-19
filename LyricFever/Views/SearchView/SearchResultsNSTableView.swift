@@ -18,17 +18,24 @@ struct SearchResultsNSTableView: NSViewRepresentable {
         let scrollView = NSScrollView()
         let tableView = NSTableView()
 
-        for (id, title) in [
-            ("provider", "Lyric Provider"),
-            ("length", "Length"),
-            ("match", "Match"),
-            ("song", "Song Name"),
-            ("album", "Album Name"),
-            ("artist", "Artist Name")
+        // Width is (initial, minimum). The two numeric columns need far less room than the
+        // three that hold names, and a name column squeezed to nothing is what makes the
+        // "Song Name" and "Album Name" ellipses unreadable.
+        for (id, title, width, minWidth) in [
+            ("provider", "Lyric Provider", 110.0, 60.0),
+            ("length", "Length", 60.0, 44.0),
+            ("match", "Match", 60.0, 44.0),
+            ("song", "Song Name", 170.0, 60.0),
+            ("album", "Album Name", 150.0, 60.0),
+            ("artist", "Artist Name", 150.0, 60.0)
         ] {
             let col = NSTableColumn(identifier: .init(id))
             col.title = title
-            col.resizingMask = .autoresizingMask
+            col.width = width
+            col.minWidth = minWidth
+            // Both masks: `.autoresizingMask` alone lets the table share out its own width
+            // changes but leaves the divider inert, so the columns could never be dragged.
+            col.resizingMask = [.userResizingMask, .autoresizingMask]
             tableView.addTableColumn(col)
         }
 
@@ -37,6 +44,11 @@ struct SearchResultsNSTableView: NSViewRepresentable {
         tableView.allowsMultipleSelection = false
         tableView.usesAlternatingRowBackgroundColors = true
         tableView.style = .inset
+        tableView.allowsColumnResizing = true
+        // Widths are the user's decision once they have made it, so remember them rather than
+        // resetting to the defaults above every time the window opens.
+        tableView.autosaveName = "SearchResultsColumns"
+        tableView.autosaveTableColumns = true
 
         scrollView.documentView = tableView
         scrollView.hasVerticalScroller = true
