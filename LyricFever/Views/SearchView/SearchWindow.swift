@@ -20,7 +20,6 @@ struct SearchWindow: View {
     @State private var lyricsAreApplied: Bool = false
     @State private var searchTask: Task<Void, Never>? = nil
     
-    private let overlayHeight: CGFloat = 250
     private let controlCornerRadius: CGFloat = 12
 
     private var backgroundBrightness: CGFloat {
@@ -88,6 +87,16 @@ struct SearchWindow: View {
             }
             .disabled(viewmodel.currentlyPlaying == nil || viewmodel.lyricsIsEmptyPostLoad)
             .menubarGlassButtonStyle()
+            Button {
+                applySelectedLyrics()
+            } label: {
+                Label(
+                    lyricsAreApplied ? "Applied" : "Click to Use",
+                    systemImage: lyricsAreApplied ? "checkmark.circle.fill" : "checkmark"
+                )
+            }
+            .disabled(selectedLyric == nil || lyricsAreApplied)
+            .menubarGlassButtonStyle()
         }
     }
     
@@ -113,61 +122,57 @@ struct SearchWindow: View {
     @ViewBuilder
     var selectedLyricView: some View {
         if let selectedLyric, let selectedLyricLyric = searchResults.first(where: { $0.id == selectedLyric}) {
-            HStack {
-                LyricPreviewNSTableView(
-                    lyrics: selectedLyricLyric.lyrics,
-                    textColor: contentForeground
-                )
-                              .frame(width: 400)
-                Spacer()
-                Button {
-                    let cleanLyrics = NetworkFetchReturn(lyrics: selectedLyricLyric.lyrics).processed(withSongName: trackName, duration: viewmodel.duration).lyrics
-                    
-                    if let currentIndex = viewmodel.currentlyPlayingLyricsIndex, currentIndex >= cleanLyrics.count {
-                        // set currentindex to nil to prevent out of bounds index access with existing UI
-                        viewmodel.currentlyPlayingLyricsIndex = nil
-                    }
-                    
-                    viewmodel.setNewLyricsColorTranslationRomanizationAndStartUpdater(with: cleanLyrics)
-                    guard let spotifyID = viewmodel.currentlyPlaying else {
-                        return
-                    }
-                    // thats how i save to coredata
-                    let _ = SongObject(from: cleanLyrics, with: viewmodel.coreDataContainer.viewContext, trackID: spotifyID, trackName: trackName)
-                    viewmodel.saveCoreData()
-                    lyricsAreApplied = true
-                } label: {
-                    Label(lyricsAreApplied ? "Lyrics were applied!" : "Click to Use", systemImage: "checkmark")
-                        .bold()
-                        .frame(width: 230)
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(lyricsAreApplied)
-                .tint(lyricsAreApplied ? .gray : .green)
-                .menubarGlassButtonStyle()
-            }
-            .padding()
-//            .id(selectedLyric)
+            LyricPreviewNSTableView(
+                lyrics: selectedLyricLyric.lyrics,
+                textColor: contentForeground
+            )
             .transition(.move(edge: .bottom))
             .frame(maxWidth: .infinity)
-            .frame(height: overlayHeight)
-            .background(
-                .thinMaterial
-            )
+            .frame(height: 200)
         }
+    }
+
+    private func applySelectedLyrics() {
+        guard
+            let selectedLyric,
+            let selectedLyricLyric = searchResults.first(where: { $0.id == selectedLyric })
+        else { return }
+
+        let cleanLyrics = NetworkFetchReturn(lyrics: selectedLyricLyric.lyrics)
+            .processed(withSongName: trackName, duration: viewmodel.duration).lyrics
+
+        if let currentIndex = viewmodel.currentlyPlayingLyricsIndex, currentIndex >= cleanLyrics.count {
+            // Set currentIndex to nil to prevent out-of-bounds access in the existing UI.
+            viewmodel.currentlyPlayingLyricsIndex = nil
+        }
+
+        viewmodel.setNewLyricsColorTranslationRomanizationAndStartUpdater(with: cleanLyrics)
+        guard let trackID = viewmodel.currentlyPlaying else { return }
+        let _ = SongObject(
+            from: cleanLyrics,
+            with: viewmodel.coreDataContainer.viewContext,
+            trackID: trackID,
+            trackName: trackName
+        )
+        viewmodel.saveCoreData()
+        lyricsAreApplied = true
     }
     
     @ViewBuilder
     var searchWindow: some View {
-        VStack {
+        VStack(alignment: .leading) {
+            Text("Searching for \(viewmodel.currentlyPlayingName ?? "-") by \(viewmodel.currentlyPlayingArtist ?? "-")")
+                .font(.caption)
+                .foregroundStyle(contentForeground.opacity(0.7))
             searchControlsView
             ZStack {
                 searchResultsView
                 loadingView
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            selectedLyricView
         }
-        // Reserve space when the bottom overlay is visible so rows aren’t hidden
-        .padding(.bottom, selectedLyric != nil ? overlayHeight : 0)
+        .animation(.snappy(duration: 0.2), value: selectedLyric)
         .padding()
     }
     
@@ -313,12 +318,6 @@ struct SearchWindow: View {
             .onExitCommand {
                 selectedLyric = nil
             }
-            .overlay(
-                VStack {
-                    selectedLyricView.ignoresSafeArea()
-                }
-                    .animation(.snappy(duration: 0.2), value: selectedLyric)
-                , alignment: .bottom)
             .onAppear {
                 trackName = viewmodel.currentlyPlayingName ?? ""
                 artistName = viewmodel.currentlyPlayingArtist ?? ""

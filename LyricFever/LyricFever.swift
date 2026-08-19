@@ -158,6 +158,7 @@ struct LyricFever: App {
                 }
         }
         .windowResizability(.contentSize)
+        .windowStyle(.hiddenTitleBar)
     }
 }
 

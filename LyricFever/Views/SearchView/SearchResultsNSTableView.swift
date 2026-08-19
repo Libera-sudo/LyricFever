@@ -43,8 +43,8 @@ struct SearchResultsNSTableView: NSViewRepresentable {
         tableView.delegate = context.coordinator
         tableView.dataSource = context.coordinator
         tableView.allowsMultipleSelection = false
-        tableView.usesAlternatingRowBackgroundColors = true
-        tableView.style = .inset
+        tableView.backgroundColor = .clear
+        tableView.usesAlternatingRowBackgroundColors = false
         tableView.allowsColumnResizing = true
         // Widths are the user's decision once they have made it, so remember them rather than
         // resetting to the defaults above every time the window opens.
@@ -53,6 +53,8 @@ struct SearchResultsNSTableView: NSViewRepresentable {
 
         scrollView.documentView = tableView
         scrollView.hasVerticalScroller = true
+        scrollView.backgroundColor = .clear
+        scrollView.drawsBackground = false
         return scrollView
     }
 
