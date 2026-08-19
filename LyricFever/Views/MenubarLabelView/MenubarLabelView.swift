@@ -80,7 +80,10 @@ struct MenubarLabelView: View {
         guard overflow > 0 else { return }
         while !Task.isCancelled {
             if viewmodel.isPlaying, let progress = lineProgress() {
-                let lead = 0.15, trail = 0.85
+                // A quarter of the line at each end is spent still. The travel is quicker for
+                // it, which reads better than a constant creep: the eye wants to rest on the
+                // opening words, catch up in one sweep, then sit on the ending.
+                let lead = 0.25, trail = 0.75
                 let travelled = min(max((progress - lead) / (trail - lead), 0), 1)
                 scrollOffset = overflow * travelled
             }
