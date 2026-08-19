@@ -299,7 +299,7 @@ struct MenubarWindowView: View {
                 openURL(URL(string: "https://buymeacoffee.com/aviwadhwalyricfever")!)
             } label: {
                 HStack {
-                    Text("给原作者买一个 beer")
+                    Text("Buy the Author a Beer")
                     Spacer()
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)

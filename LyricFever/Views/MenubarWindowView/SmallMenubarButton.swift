@@ -35,8 +35,7 @@ public struct SmallMenubarButtonStyle: ButtonStyle {
                             .controlSize(buttonState == .missing ? .small : .regular)
                             .bold(buttonState != .missing)
                         if buttonState == .missing {
-                                Image(systemName: "exclamationmark")
-                                .fontWeight(.black)
+                            UnavailableBadge()
                         }
                     }
                     .menubarGlassForegroundStyle(
@@ -107,5 +106,29 @@ public struct SmallMenubarButton: View {
         .buttonStyle(SmallMenubarButtonStyle(imageText: imageText, buttonState: buttonState, slashed: slashed))
         .disabled(disabled)
         .buttonStyle(.borderless)
+    }
+}
+
+/// "N/A" set like a percent sign: N above the stroke, A below it.
+///
+/// It marks a control that has nothing to work with -- a song no source has lyrics for -- as
+/// distinct from one that failed. An exclamation mark is reserved for the latter: a warning on
+/// a song that simply has no words trains the eye to ignore warnings.
+struct UnavailableBadge: View {
+    var body: some View {
+        ZStack {
+            Capsule()
+                .frame(width: 1.5, height: 13)
+                // Leaning the way a solidus does, top to the right.
+                .rotationEffect(.degrees(20))
+            Text(verbatim: "N")
+                .font(.system(size: 7, weight: .heavy))
+                .offset(x: -3.5, y: -4)
+            Text(verbatim: "A")
+                .font(.system(size: 7, weight: .heavy))
+                .offset(x: 3.5, y: 4)
+        }
+        .frame(width: 13, height: 15)
+        .accessibilityLabel(Text("No lyrics available"))
     }
 }
