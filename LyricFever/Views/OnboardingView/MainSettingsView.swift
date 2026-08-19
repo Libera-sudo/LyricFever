@@ -108,7 +108,7 @@ struct MainSettingsView: View {
                 
                 VStack {
                     Text("Email me at [aviwad@gmail.com](mailto:aviwad@gmail.com) for any support")
-                    Text(verbatim: "⚠️ Disclaimer: I do not own the rights to Spotify or the lyric content presented.\nMusixmatch and Spotify own all rights to the lyrics.\nTranslations by InTheManXG and ARui-tw")
+                    Text(verbatim: "⚠️ Disclaimer: I do not own the rights to any of the lyric content presented.\nLyrics come from LRCLIB, NetEase Cloud Music, QQ Music, and Musixmatch, who own all rights to them.\nTranslations by InTheManXG and ARui-tw")
                     Text("[Lyric Fever GitHub](https://github.com/aviwad/LyricFever)\nVersion 3.3")
                 }
                     .multilineTextAlignment(.center)

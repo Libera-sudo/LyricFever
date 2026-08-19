@@ -11,7 +11,6 @@ import ScriptingBridge
 import MusicKit
 
 struct OnboardingWindow: View {
-    @State var spotifyPermission: Bool = false
     @Environment(\.dismiss) var dismiss
     var body: some View {
         TabView {
