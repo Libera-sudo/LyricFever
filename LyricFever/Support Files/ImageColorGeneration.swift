@@ -14,10 +14,30 @@ import ColorKit
 
 #if os(macOS)
 extension NSImage {
+    /// Minimum share of the artwork a colour must cover before it is allowed to represent it.
+    ///
+    /// Sorting the dominant colours by saturation alone let a scattering of highly saturated
+    /// pixels -- a few red branches over a wide teal field -- outrank the colour the artwork
+    /// actually reads as, and since saturated reds and oranges are the usual accent, panels
+    /// drifted red almost regardless of the cover. Colours below this share are dropped first,
+    /// and the most saturated of what survives is used, which keeps the result vivid without
+    /// letting a speck speak for the whole image.
+    private static let minimumColorShare: CGFloat = 0.10
+
     func findWhiteTextLegibleMostSaturatedDominantColor() -> Int32 {
-        guard let dominantColors = try? self.dominantColors(with: .best, algorithm: .kMeansClustering).map({self.adjustedColor($0)}).sorted(by: { $0.saturationComponent > $1.saturationComponent }) else {
-            return self.findAverageColor()
-        }
+        let byShare = (try? self.dominantColorFrequencies(with: .best)) ?? []
+        let total = byShare.reduce(into: CGFloat.zero) { $0 += $1.frequency }
+        let substantial = total > 0
+            ? byShare.filter { $0.frequency / total >= Self.minimumColorShare }.map(\.color)
+            : []
+        // Falls back to every dominant colour when no single one is substantial enough --
+        // artwork made of many small patches still needs an answer.
+        let candidates = substantial.isEmpty
+            ? (try? self.dominantColors(with: .best, algorithm: .kMeansClustering)) ?? []
+            : substantial
+        guard !candidates.isEmpty else { return self.findAverageColor() }
+        let dominantColors = candidates.map { self.adjustedColor($0) }
+            .sorted(by: { $0.saturationComponent > $1.saturationComponent })
         for color in dominantColors {
             if color.brightnessComponent > 0.1 {
                 var hue: CGFloat = 0

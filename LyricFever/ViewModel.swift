@@ -72,6 +72,13 @@ import MediaRemoteAdapter
                     return
                 }
                 self.artworkImage = artwork
+                // Colour is derived here rather than alongside the lyrics. Artwork arrives on
+                // its own schedule, so computing it when lyrics land found `artworkImage` still
+                // nil about as often as not -- and that only ever ran on a network fetch, so a
+                // song answered from the cache never got a colour at all. This is the one moment
+                // an image is guaranteed to exist.
+                self.callColorDataServiceOnLyricColorOrArtwork()
+                self.setBackgroundColor()
             }
             // This will only be called for Apple Music events
         }
