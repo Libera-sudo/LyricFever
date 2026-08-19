@@ -350,7 +350,10 @@ struct MenubarWindowView: View {
         .frame(width: 300)
     }
 
-    func pageHeader(_ title: String, back: Page) -> some View {
+    /// `status` rides the trailing edge of the header row rather than taking a line of its
+    /// own below it: the panel is 300pt wide and every vertical point it spends is a point
+    /// the page it heads does not get.
+    func pageHeader(_ title: String, back: Page, status: String? = nil) -> some View {
         HStack(spacing: 6) {
             Button {
                 navigate(to: back)
@@ -364,6 +367,13 @@ struct MenubarWindowView: View {
             .buttonStyle(.plain)
             Text(title).font(.headline)
             Spacer()
+            if let status {
+                Text(status)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .fixedSize()
+            }
         }
     }
 
@@ -448,7 +458,8 @@ struct MenubarWindowView: View {
         @Bindable var viewmodel = viewmodel
         let status = translationStatus
         VStack(alignment: .leading, spacing: 8) {
-            pageHeader("Translation", back: .main)
+            pageHeader("Translation", back: .main,
+                       status: viewmodel.userDefaultStorage.translate ? status : nil)
             Divider()
             HStack {
                 Toggle("Translate to \(viewmodel.userLocaleLanguageString)",
@@ -465,11 +476,6 @@ struct MenubarWindowView: View {
                         .contentShape(.rect)
                 }
                 .buttonStyle(.plain)
-            }
-            if viewmodel.userDefaultStorage.translate {
-                Text(status)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
             }
             disclosureRow("Source (this song)", value: sourceLanguageLabel) {
                 navigate(to: .translationSourceLanguage)
