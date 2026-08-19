@@ -33,9 +33,12 @@ struct SearchResultsNSTableView: NSViewRepresentable {
             col.title = title
             col.width = width
             col.minWidth = minWidth
-            // Both masks: `.autoresizingMask` alone lets the table share out its own width
-            // changes but leaves the divider inert, so the columns could never be dragged.
-            col.resizingMask = [.userResizingMask, .autoresizingMask]
+            col.maxWidth = 400
+            // User resizing only. Granting `.autoresizingMask` as well put the column under two
+            // masters: the drag set a width, then the table's own autoresizing pass redistributed
+            // it, so several columns behaved as though the divider did nothing. The table keeps
+            // its width in step through `columnAutoresizingStyle` below instead.
+            col.resizingMask = .userResizingMask
             tableView.addTableColumn(col)
         }
 
@@ -45,6 +48,9 @@ struct SearchResultsNSTableView: NSViewRepresentable {
         tableView.backgroundColor = .clear
         tableView.usesAlternatingRowBackgroundColors = false
         tableView.allowsColumnResizing = true
+        // Only the trailing column stretches when the table does, which leaves every divider
+        // free to mean exactly what the user dragged it to.
+        tableView.columnAutoresizingStyle = .lastColumnOnlyAutoresizingStyle
         // Row separators. The alternating row fill that used to do this job was dropped when the
         // table went transparent -- opaque stripes cannot sit over a material. A hairline in
         // `separatorColor` can: it is vibrancy-aware, so it stays visible against whatever the
@@ -53,7 +59,7 @@ struct SearchResultsNSTableView: NSViewRepresentable {
         tableView.gridColor = .separatorColor
         // Widths are the user's decision once they have made it, so remember them rather than
         // resetting to the defaults above every time the window opens.
-        tableView.autosaveName = "SearchResultsColumns"
+        tableView.autosaveName = "SearchResultsColumns2"
         tableView.autosaveTableColumns = true
 
         scrollView.documentView = tableView
