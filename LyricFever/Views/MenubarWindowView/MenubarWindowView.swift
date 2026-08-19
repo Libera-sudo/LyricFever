@@ -190,6 +190,11 @@ struct MenubarWindowView: View {
         }
     }
     
+    /// True when the menu bar, not the slider, is what limits the lyric.
+    var cappedBySpace: Bool {
+        viewmodel.menubarLyricWidth < CGFloat(viewmodel.userDefaultStorage.menubarWidth)
+    }
+
     var truncationBinding: Binding<Double> {
         Binding(
             get: { Double(viewmodel.userDefaultStorage.menubarWidth) },
@@ -231,10 +236,16 @@ struct MenubarWindowView: View {
                 Image(systemName: "airplayaudio")
                     .opacity(0.8)
             }
+            LyricWidthIcon(gap: 2.2, filled: true)
             truncationSlider
-            Text("\(viewmodel.userDefaultStorage.menubarWidth)")
+            // The slider sets a cap; what the lyric actually gets is the cap or the measured
+            // space, whichever is smaller. When space wins, showing the cap would be a lie about
+            // a number the user just dragged, so the effective width is shown instead -- coloured,
+            // because the same slot now means something different.
+            Text("\(cappedBySpace ? Int(viewmodel.menubarLyricWidth) : viewmodel.userDefaultStorage.menubarWidth)")
                 .font(.caption)
                 .monospacedDigit()
+                .foregroundStyle(cappedBySpace ? Color.orange : Color.primary)
                 .frame(width: 26)
             Button("Quit") {
                 NSApplication.shared.terminate(nil)
@@ -365,14 +376,19 @@ struct MenubarWindowView: View {
                     .contentShape(.rect)
             }
             .buttonStyle(.plain)
-            Text(title).font(.headline)
-            Spacer()
+            // The title outranks the status: fixedSize on the status made it hold its full
+            // width and squeeze the heading until "Translation" broke across two lines.
+            Text(title)
+                .font(.headline)
+                .fixedSize()
+                .layoutPriority(1)
+            Spacer(minLength: 4)
             if let status {
                 Text(status)
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
-                    .fixedSize()
+                    .truncationMode(.tail)
             }
         }
     }
