@@ -62,6 +62,11 @@ struct MenubarLabelView: View {
         if !viewmodel.isPlaying {
             return String(localized: "paused")
         }
+        // Before "no lyrics": a song change resets `lyricsIsEmptyPostLoad` to true, so the
+        // seconds spent downloading would otherwise announce that the song has none.
+        if viewmodel.isFetching {
+            return String(localized: "searching…")
+        }
         if viewmodel.lyricsIsEmptyPostLoad {
             return String(localized: "no lyrics")
         }
