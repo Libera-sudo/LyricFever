@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import NaturalLanguage
 #if os(macOS)
 #endif
 import CoreData
@@ -865,6 +866,18 @@ import MediaRemoteAdapter
             isFetchingTranslation = false
             return
         }
+        let sourceLanguage = translationSourceLanguage ?? detectedLyricsLanguage(in: lines)
+        // Both sides unwrapped explicitly. Comparing the optionals directly would make a
+        // failed detection (nil) equal to a target with no language code (also nil), and skip
+        // translation on the strength of knowing nothing about either.
+        if let sourceCode = sourceLanguage?.languageCode?.identifier,
+           let targetCode = userLocaleLanguage.languageCode?.identifier,
+           sourceCode == targetCode {
+            translatedLyric = []
+            isFetchingTranslation = false
+            print("Translation: Lyrics are already in \(userLocaleLanguage.languageCode?.identifier ?? userLocaleLanguage.minimalIdentifier); skipping translation")
+            return
+        }
         let requestedSong = currentlyPlaying
         isFetchingTranslation = true
         localTranslationTask = Task { [weak self] in
@@ -885,6 +898,28 @@ import MediaRemoteAdapter
                 isFetchingTranslation = false
             }
         }
+    }
+
+    /// Detects a source language only when several lyric lines agree on a true majority.
+    private func detectedLyricsLanguage(in lines: [LyricLine]) -> Locale.Language? {
+        let recognizer = NLLanguageRecognizer()
+        var languageCounts: [NLLanguage: Int] = [:]
+        var recognizedLineCount = 0
+
+        for line in lines {
+            recognizer.reset()
+            recognizer.processString(line.words)
+            guard let language = recognizer.dominantLanguage else { continue }
+            languageCounts[language, default: 0] += 1
+            recognizedLineCount += 1
+        }
+
+        guard let majority = languageCounts.max(by: { $0.value < $1.value }),
+              majority.value >= 3,
+              majority.value * 2 > recognizedLineCount else {
+            return nil
+        }
+        return Locale.Language(identifier: majority.key.rawValue)
     }
 
     /// Hy-MT2 writes Simplified Chinese whatever variant was asked for -- its template only

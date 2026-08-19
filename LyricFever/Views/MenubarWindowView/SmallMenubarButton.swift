@@ -10,6 +10,13 @@ import SwiftUI
 public struct SmallMenubarButtonStyle: ButtonStyle {
     let imageText: String
     let buttonState: ButtonState
+    let slashed: Bool
+
+    init(imageText: String, buttonState: ButtonState, slashed: Bool = false) {
+        self.imageText = imageText
+        self.buttonState = buttonState
+        self.slashed = slashed
+    }
     
     var disabled: Bool {
         buttonState == .disabled
@@ -36,7 +43,7 @@ public struct SmallMenubarButtonStyle: ButtonStyle {
                         glass: buttonState.glassForegroundStyle,
                         fallback: buttonState.foregroundStyle
                     )
-                    if disabled {
+                    if slashed || disabled {
                         Capsule()
                             .fill(Color.white)
                             .frame(width: 32, height: 2)
@@ -70,7 +77,22 @@ public struct SmallMenubarButton: View {
     let buttonText: String
     let imageText: String
     let buttonState: ButtonState
+    let slashed: Bool
     let onClick: () -> Void
+
+    init(
+        buttonText: String,
+        imageText: String,
+        buttonState: ButtonState,
+        slashed: Bool = false,
+        onClick: @escaping () -> Void
+    ) {
+        self.buttonText = buttonText
+        self.imageText = imageText
+        self.buttonState = buttonState
+        self.slashed = slashed
+        self.onClick = onClick
+    }
     
     var disabled: Bool {
         buttonState == .disabled
@@ -82,7 +104,7 @@ public struct SmallMenubarButton: View {
         } label: {
             EmptyView()
         }
-        .buttonStyle(SmallMenubarButtonStyle(imageText: imageText, buttonState: buttonState))
+        .buttonStyle(SmallMenubarButtonStyle(imageText: imageText, buttonState: buttonState, slashed: slashed))
         .disabled(disabled)
         .buttonStyle(.borderless)
     }

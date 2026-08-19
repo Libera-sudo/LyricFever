@@ -167,7 +167,7 @@ struct MenubarWindowView: View {
     @ViewBuilder
     var lyricControls: some View {
         HStack {
-            SmallMenubarButton(buttonText: "", imageText: "music.note.list", buttonState: displayLyrics) {
+            SmallMenubarButton(buttonText: "", imageText: "music.note.list", buttonState: displayLyrics, slashed: !viewmodel.showLyrics) {
                 viewmodel.showLyrics.toggle()
             }
             SmallMenubarButton(buttonText: "", imageText: "magnifyingglass", buttonState: searchState) {
