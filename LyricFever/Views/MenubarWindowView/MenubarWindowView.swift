@@ -257,31 +257,49 @@ struct MenubarWindowView: View {
         .frame(width: 300)
     }
 
+    /// A row whose control sits against the trailing edge rather than beside its label.
+    ///
+    /// `Toggle("…", isOn:)` puts the switch immediately after the text, so a column of rows ends
+    /// up with its switches at as many different x positions as there are label lengths. Pushing
+    /// them to one edge gives the eye a single line to run down.
+    @ViewBuilder
+    func optionRow<Control: View>(_ label: String, @ViewBuilder control: () -> Control) -> some View {
+        HStack {
+            Text(label)
+            Spacer(minLength: 12)
+            control()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
     @ViewBuilder
     var moreOptionsPage: some View {
         @Bindable var viewmodel = viewmodel
         VStack(alignment: .leading, spacing: 8) {
             pageHeader("Options", back: .main)
             Divider()
-            Toggle("Show Song Details in Menubar", isOn: $viewmodel.userDefaultStorage.showSongDetailsInMenubar)
-                .toggleStyle(.switch)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            Toggle("AirPlay Audio Delay", isOn: $viewmodel.userDefaultStorage.airplayDelay)
-                .toggleStyle(.switch)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .disabled(!viewmodel.userDefaultStorage.hasOnboarded)
-            LaunchAtLogin.Toggle(String(localized: "Launch at Login"))
-                .toggleStyle(.switch)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .disabled(!viewmodel.userDefaultStorage.hasOnboarded)
-            disclosureRow("Settings", value: "") {
-                navigate(to: .settings)
+            optionRow("Show Song Details in Menubar") {
+                Toggle("", isOn: $viewmodel.userDefaultStorage.showSongDetailsInMenubar)
+                    .labelsHidden()
+                    .toggleStyle(.switch)
+            }
+            optionRow("AirPlay Audio Delay") {
+                Toggle("", isOn: $viewmodel.userDefaultStorage.airplayDelay)
+                    .labelsHidden()
+                    .toggleStyle(.switch)
+                    .disabled(!viewmodel.userDefaultStorage.hasOnboarded)
+            }
+            optionRow("Launch at Login") {
+                LaunchAtLogin.Toggle { EmptyView() }
+                    .labelsHidden()
+                    .toggleStyle(.switch)
+                    .disabled(!viewmodel.userDefaultStorage.hasOnboarded)
             }
             Button {
                 openURL(URL(string: "https://buymeacoffee.com/aviwadhwalyricfever")!)
             } label: {
                 HStack {
-                    Text("Buy Me A Beer (Thank You)!")
+                    Text("给原作者买一个 beer")
                     Spacer()
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -289,6 +307,10 @@ struct MenubarWindowView: View {
                 .contentShape(.rect)
             }
             .buttonStyle(.plain)
+            // Last: it leaves this page rather than changing something on it.
+            disclosureRow("Settings", value: "") {
+                navigate(to: .settings)
+            }
         }
         .frame(width: 300)
     }
