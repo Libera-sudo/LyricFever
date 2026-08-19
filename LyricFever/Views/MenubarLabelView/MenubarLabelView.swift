@@ -49,12 +49,32 @@ struct MenubarLabelView: View {
         }
     }
 
+    /// What to say when there is no lyric line to show. Set in italics so it never reads as a
+    /// lyric that happens to be short -- these are notes about the player, not words from the
+    /// song.
+    var menuBarStatus: String {
+        if !viewmodel.showLyrics {
+            return String(localized: "lyrics off")
+        }
+        if viewmodel.currentlyPlayingName == nil {
+            return String(localized: "not playing")
+        }
+        if !viewmodel.isPlaying {
+            return String(localized: "paused")
+        }
+        if viewmodel.lyricsIsEmptyPostLoad {
+            return String(localized: "no lyrics")
+        }
+        // Playing, lyrics loaded, but this moment has no line of its own.
+        return String(localized: "instrumental")
+    }
+
     var body: some View {
         // Even the placeholder is drawn on the same canvas. It appears whenever there is no
         // lyric to show -- paused, between lines, instrumental passages -- and letting it
         // shrink the item back to icon width would reintroduce exactly the resize this whole
         // approach exists to avoid.
-        Image(nsImage: Self.render(menuBarTitle, width: viewmodel.menubarLyricWidth, scrolledBy: scrollOffset))
+        Image(nsImage: Self.render(menuBarTitle, status: menuBarStatus, width: viewmodel.menubarLyricWidth, scrolledBy: scrollOffset))
             .task(id: ScrollKey(line: menuBarTitle, width: viewmodel.menubarLyricWidth)) {
                 await scrollThroughLine()
             }
@@ -143,7 +163,7 @@ struct MenubarLabelView: View {
     ///
     /// `isTemplate` hands colouring back to AppKit, so the lyric follows the menu bar the way
     /// the placeholder icon does, in light and dark alike.
-    static func render(_ text: String?, width: CGFloat, scrolledBy offset: CGFloat = 0) -> NSImage {
+    static func render(_ text: String?, status: String, width: CGFloat, scrolledBy offset: CGFloat = 0) -> NSImage {
         let height: CGFloat = 18
         let width = max(width, 1)
         let image = NSImage(size: NSSize(width: width, height: height))
@@ -162,15 +182,22 @@ struct MenubarLabelView: View {
             let x = drawn.width <= width ? width - drawn.width : -offset
             NSGraphicsContext.current?.cgContext.clip(to: CGRect(x: 0, y: 0, width: width, height: height))
             line.draw(at: NSPoint(x: x, y: y), withAttributes: attributes)
-        } else if let glyph = NSImage(systemSymbolName: "waveform", accessibilityDescription: nil) {
-            // Stands in during instrumental passages, the gaps between lines, and while paused.
-            // A waveform reads as "sound is still happening" rather than as a broken state,
-            // which a list-of-notes icon sitting where words used to be does not.
-            // Right-aligned like the lyric, so the two never appear to shift when one replaces
-            // the other.
-            let size = glyph.size
-            glyph.draw(in: NSRect(x: width - size.width, y: (height - size.height) / 2,
-                                  width: size.width, height: size.height))
+        } else {
+            // The state, in the font's own italic rather than a slanted upright, right-aligned
+            // and faded so it sits behind the lyrics in the reading order instead of competing
+            // with them. Template images carry their alpha through, so the fade survives
+            // whatever colour AppKit paints the menu bar in.
+            let base = NSFont.menuBarFont(ofSize: 0)
+            let italic = NSFont(descriptor: base.fontDescriptor.withSymbolicTraits(.italic),
+                                size: base.pointSize) ?? base
+            let attributes: [NSAttributedString.Key: Any] = [
+                .font: italic,
+                .foregroundColor: NSColor.black.withAlphaComponent(0.55)
+            ]
+            let line = status as NSString
+            let drawn = line.size(withAttributes: attributes)
+            line.draw(at: NSPoint(x: width - drawn.width, y: (height - drawn.height) / 2),
+                      withAttributes: attributes)
         }
         image.unlockFocus()
         image.isTemplate = true
