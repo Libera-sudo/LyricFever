@@ -45,6 +45,12 @@ struct SearchResultsNSTableView: NSViewRepresentable {
         tableView.backgroundColor = .clear
         tableView.usesAlternatingRowBackgroundColors = false
         tableView.allowsColumnResizing = true
+        // Row separators. The alternating row fill that used to do this job was dropped when the
+        // table went transparent -- opaque stripes cannot sit over a material. A hairline in
+        // `separatorColor` can: it is vibrancy-aware, so it stays visible against whatever the
+        // window is sampling from the desktop.
+        tableView.gridStyleMask = [.solidHorizontalGridLineMask]
+        tableView.gridColor = .separatorColor
         // Widths are the user's decision once they have made it, so remember them rather than
         // resetting to the defaults above every time the window opens.
         tableView.autosaveName = "SearchResultsColumns"
