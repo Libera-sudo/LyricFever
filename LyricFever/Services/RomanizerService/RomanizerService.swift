@@ -42,7 +42,7 @@ class RomanizerService {
         guard let romajiTokens = ipadicTokenizer?.tokenize(text: string, transliteration: .romaji) else {
             return nil
         }
-        let romanized = romajiTokens.map{$0.reading}.joined()
+        let romanized = romajiTokens.map{$0.reading}.filter{!$0.isEmpty}.joined(separator: " ")
         //hachimitsu ha kuma no dai kōbutsu desu 。
         return romanized
     }
