@@ -19,32 +19,23 @@ struct SearchWindow: View {
     @State private var lyricsAreApplied: Bool = false
     @State private var searchTask: Task<Void, Never>? = nil
     
-    private let controlCornerRadius: CGFloat = 12
 
     @ViewBuilder
     var searchControlsView: some View {
         HStack {
-            Text("Song Name")
+            Text("Song Name:")
                 .foregroundStyle(.primary)
+            // These two are editable: the search runs on whatever they hold, and the
+            // whole point of the window is correcting a bad title or artist. Glass made
+            // them read as labels sitting among the glass buttons, so they keep the
+            // standard bordered field instead -- the control that looks typed-into.
             TextField("", text: $trackName)
-                .foregroundStyle(.primary)
-                .menubarGlass(
-                    tint: nil,
-                    interactive: true,
-                    cornerRadius: controlCornerRadius,
-                    fallback: EmptyView()
-                )
+                .textFieldStyle(.roundedBorder)
                 .padding(.trailing, 30)
             Text("Artist Name:")
                 .foregroundStyle(.primary)
             TextField("", text: $artistName)
-                .foregroundStyle(.primary)
-                .menubarGlass(
-                    tint: nil,
-                    interactive: true,
-                    cornerRadius: controlCornerRadius,
-                    fallback: EmptyView()
-                )
+                .textFieldStyle(.roundedBorder)
                 .padding(.trailing, 30)
             Button {
                 searchResults = []
