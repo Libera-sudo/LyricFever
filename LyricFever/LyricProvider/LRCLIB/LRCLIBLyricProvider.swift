@@ -71,7 +71,14 @@ class LRCLIBLyricProvider: LyricProvider {
         var results: [SongResult] = []
         for lyric in lrcLyrics.lyrics {
             print("lrc lyric: \(lyric.name)")
-            results.append(SongResult(lyricType: "LRCLIB", songName: lyric.trackName, albumName: lyric.albumName, artistName: lyric.artistName, lyrics: lyric.lyrics))
+            results.append(SongResult(
+                lyricType: "LRCLIB",
+                songName: lyric.trackName,
+                albumName: lyric.albumName,
+                artistName: lyric.artistName,
+                lyrics: lyric.lyrics,
+                durationMS: Int((lyric.duration * 1_000).rounded())
+            ))
         }
         return results
     }

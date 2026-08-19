@@ -135,30 +135,52 @@ extension QQMusicLyricProvider {
         let searchData = try await fakeSafariUserAgentSession.data(for: request).0
         let search = try JSONDecoder().decode(QQMusicSearch.self, from: searchData)
 
-        var results: [SongResult] = []
-        for song in search.data.song.list {
-            guard let firstArtist = song.singer.first,
-                  let lyricRequest = Self.lyricRequest(songMID: song.songmid) else {
-                continue
-            }
-
-            do {
-                let lyricData = try await fakeSafariUserAgentSession.data(for: lyricRequest).0
-                let response = try JSONDecoder().decode(QQMusicLyrics.self, from: lyricData)
-                guard let lyric = response.lyric, !lyric.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+        return await withTaskGroup(of: (Int, SongResult)?.self) { group in
+            for (index, song) in search.data.song.list.enumerated() {
+                guard let firstArtist = song.singer.first,
+                      let lyricRequest = Self.lyricRequest(songMID: song.songmid) else {
                     continue
                 }
 
-                let cleaned = unescapeQQMusicHTMLEntities(in: lyric)
-                let parsed = LyricsParser(lyrics: cleaned).lyrics
-                guard !parsed.isEmpty else { continue }
+                group.addTask { @MainActor in
+                    guard !Task.isCancelled else { return nil }
+                    do {
+                        let lyricData = try await self.fakeSafariUserAgentSession.data(for: lyricRequest).0
+                        guard !Task.isCancelled else { return nil }
+                        let response = try JSONDecoder().decode(QQMusicLyrics.self, from: lyricData)
+                        guard let lyric = response.lyric,
+                              !lyric.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                            return nil
+                        }
 
-                results.append(SongResult(lyricType: "QQ Music", songName: song.songname, albumName: song.albumname, artistName: firstArtist.name, lyrics: parsed))
-            } catch {
-                // Ignore per-item failure so the remaining results are preserved.
+                        let cleaned = unescapeQQMusicHTMLEntities(in: lyric)
+                        let parsed = LyricsParser(lyrics: cleaned).lyrics
+                        guard !parsed.isEmpty, parsed.last?.startTimeMS != 0.0 else { return nil }
+
+                        return (
+                            index,
+                            SongResult(
+                                lyricType: "QQ Music",
+                                songName: song.songname,
+                                albumName: song.albumname,
+                                artistName: firstArtist.name,
+                                lyrics: parsed,
+                                durationMS: song.interval * 1_000
+                            )
+                        )
+                    } catch {
+                        // Ignore per-item failure so the remaining results are preserved.
+                        return nil
+                    }
+                }
             }
+
+            var indexedResults: [(Int, SongResult)] = []
+            for await result in group {
+                if let result { indexedResults.append(result) }
+            }
+            return indexedResults.sorted { $0.0 < $1.0 }.map(\.1)
         }
-        return results
     }
 }
 

@@ -15,4 +15,5 @@ struct SongResult: Identifiable {
     let artistName: String
     let id = UUID()
     let lyrics: [LyricLine]
+    let durationMS: Int?
 }

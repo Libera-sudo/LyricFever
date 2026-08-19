@@ -9,6 +9,7 @@ import SwiftUI
 
 struct SearchResultsNSTableView: NSViewRepresentable {
     let results: [SongResult]
+    let agreementScores: [UUID: Double]
     @Binding var selectedID: UUID?
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
@@ -19,6 +20,8 @@ struct SearchResultsNSTableView: NSViewRepresentable {
 
         for (id, title) in [
             ("provider", "Lyric Provider"),
+            ("length", "Length"),
+            ("match", "Match"),
             ("song", "Song Name"),
             ("album", "Album Name"),
             ("artist", "Artist Name")
@@ -78,6 +81,11 @@ extension SearchResultsNSTableView.Coordinator: NSTableViewDelegate {
         switch tableColumn?.identifier.rawValue {
         case "provider":
             text = result.lyricType
+        case "length":
+            text = result.durationMS.map(Self.formatDuration) ?? ""
+        case "match":
+            let score = parent.agreementScores[result.id] ?? 0
+            text = score > 0 ? "\(Int((score * 100).rounded()))%" : ""
         case "song":
             text = result.songName
         case "album":
@@ -100,5 +108,10 @@ extension SearchResultsNSTableView.Coordinator: NSTableViewDelegate {
         } else {
             parent.selectedID = nil
         }
+    }
+
+    private static func formatDuration(_ durationMS: Int) -> String {
+        let totalSeconds = durationMS / 1_000
+        return "\(totalSeconds / 60):\(String(format: "%02d", totalSeconds % 60))"
     }
 }

@@ -156,9 +156,12 @@ extension NetEaseLyricProvider {
         let urlResponseAndData = try await fakeSpotifyUserAgentSession.data(for: request)
         let neteasesearch = try JSONDecoder().decode(NetEaseSearch.self, from: urlResponseAndData.0)
         
-        var results: [SongResult] = []
-        for song in neteasesearch.result.songs {
-            guard let firstArtist = song.artists.first else { continue }
+        return await withTaskGroup(of: (Int, SongResult)?.self) { group in
+            for (index, song) in neteasesearch.result.songs.enumerated() {
+                guard let firstArtist = song.artists.first,
+                      let lyricURL = Self.lyricURL(songID: song.id) else {
+                    continue
+                }
 //            // Similarity checks (reuse thresholds)
 //            let conditions = [
 //                track.distance(between: song.name) > 0.75,
@@ -167,25 +170,42 @@ extension NetEaseLyricProvider {
 //            ]
 //            let trueCount = conditions.filter { $0 }.count
 //            if trueCount < 2 { continue }
-            
-            // Fetch lyrics
-            guard let lyricURL = Self.lyricURL(songID: song.id) else { continue }
-            do {
-                let lyricsData = try await fakeSpotifyUserAgentSession.data(from: lyricURL).0
-                let neteaseLyrics = try JSONDecoder().decode(NetEaseLyrics.self, from: lyricsData)
-                guard let lrcText = neteaseLyrics.lrc?.lyric else { continue }
-                let cleaned = unescapeHTMLEntities(in: lrcText)
-                let parsed = LyricsParser(lyrics: cleaned).lyrics
-                // Same nil-vs-zero trap as the fetch path: without the `isEmpty` test a body
-                // that parsed to nothing became a search result with no lyrics behind it, which
-                // showed up as an empty preview pane.
-                if parsed.isEmpty || parsed.last?.startTimeMS == 0.0 { continue }
-                
-                results.append(SongResult(lyricType: "NetEase", songName: song.name, albumName: song.album.name, artistName: firstArtist.name, lyrics: parsed))
-            } catch {
-                // ignore per-item failure
+
+                group.addTask { @MainActor in
+                    guard !Task.isCancelled else { return nil }
+                    do {
+                        let lyricsData = try await self.fakeSpotifyUserAgentSession.data(from: lyricURL).0
+                        guard !Task.isCancelled else { return nil }
+                        let neteaseLyrics = try JSONDecoder().decode(NetEaseLyrics.self, from: lyricsData)
+                        guard let lrcText = neteaseLyrics.lrc?.lyric else { return nil }
+                        let cleaned = unescapeHTMLEntities(in: lrcText)
+                        let parsed = LyricsParser(lyrics: cleaned).lyrics
+                        // NetEase sometimes returns only metadata at 0.0 ms rather than lyrics.
+                        guard !parsed.isEmpty, parsed.last?.startTimeMS != 0.0 else { return nil }
+
+                        return (
+                            index,
+                            SongResult(
+                                lyricType: "NetEase",
+                                songName: song.name,
+                                albumName: song.album.name,
+                                artistName: firstArtist.name,
+                                lyrics: parsed,
+                                durationMS: song.duration
+                            )
+                        )
+                    } catch {
+                        // Ignore per-item failure so the remaining results are preserved.
+                        return nil
+                    }
+                }
             }
+
+            var indexedResults: [(Int, SongResult)] = []
+            for await result in group {
+                if let result { indexedResults.append(result) }
+            }
+            return indexedResults.sorted { $0.0 < $1.0 }.map(\.1)
         }
-        return results
     }
 }
