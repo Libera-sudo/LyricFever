@@ -42,9 +42,42 @@ class RomanizerService {
         guard let romajiTokens = ipadicTokenizer?.tokenize(text: string, transliteration: .romaji) else {
             return nil
         }
-        let romanized = romajiTokens.map{$0.reading}.filter{!$0.isEmpty}.joined(separator: " ")
+        let romanized = foldSokuon(romajiTokens.map{$0.reading}.filter{!$0.isEmpty})
         //hachimitsu ha kuma no dai kōbutsu desu 。
         return romanized
+    }
+
+    // The tokenizer spells the sokuon っ literally, as "~tsu": 欲しかった splits into
+    // 欲しかっ + た and reads back as "hoshika~tsu" + "ta". Hepburn instead doubles the
+    // consonant that follows, so the marker is folded into the next reading -- and the
+    // space goes with it, because a gemination never spans a word boundary.
+    private static let sokuonMarker = "~tsu"
+
+    private static func foldSokuon(_ readings: [String]) -> String {
+        let joined = readings.joined(separator: " ")
+        var folded = ""
+        var index = joined.startIndex
+        while index < joined.endIndex {
+            guard joined[index...].hasPrefix(sokuonMarker) else {
+                folded.append(joined[index])
+                index = joined.index(after: index)
+                continue
+            }
+            index = joined.index(index, offsetBy: sokuonMarker.count)
+            if index < joined.endIndex, joined[index] == " " {
+                index = joined.index(after: index)
+            }
+            // Hepburn writes "tch", not "cch". A following vowel -- or nothing at all,
+            // when the line ends on the marker -- leaves no consonant to double, so the
+            // marker just disappears. The character itself is copied by the next pass.
+            let rest = joined[index...]
+            if rest.hasPrefix("ch") {
+                folded.append("t")
+            } else if let initial = rest.first, "bcdfghjklmnpqrstvwxyz".contains(initial) {
+                folded.append(initial)
+            }
+        }
+        return folded
     }
     // The language decision belongs to the song, not the line. A lyric line is often
     // three or four characters, and NLLanguageRecognizer reads a kanji-only line as
