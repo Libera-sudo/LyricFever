@@ -10,18 +10,20 @@
 	<true/>
 	<key>com.apple.security.network.client</key>
 	<true/>
+	<!-- Narrowed to what AppleMusicPlayer actually reads, per com.apple.Music.sdef:
+	     playback     covers application.playerState / playerPosition / currentTrack and
+	                  the track class (name, artist, album, genre, duration).
+	     library.read covers persistentID, which is declared on the item class that track
+	                  inherits from, and which the playback group does not reach.
+	     Dropped: library.read-write (nothing is ever written), user-interface, and
+	     device / library.playback / playerInfo / podcast, which this Music version's
+	     sdef does not declare at all. -->
 	<key>com.apple.security.scripting-targets</key>
 	<dict>
 		<key>com.apple.Music</key>
 		<array>
-			<string>com.apple.Music.device</string>
-			<string>com.apple.Music.library.playback</string>
-			<string>com.apple.Music.user-interface</string>
 			<string>com.apple.Music.playback</string>
-			<string>com.apple.Music.playerInfo</string>
 			<string>com.apple.Music.library.read</string>
-			<string>com.apple.Music.library.read-write</string>
-			<string>com.apple.Music.podcast</string>
 		</array>
 	</dict>
 </dict>
