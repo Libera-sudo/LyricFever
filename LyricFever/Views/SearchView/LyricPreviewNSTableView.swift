@@ -9,10 +9,9 @@ import SwiftUI
 
 struct LyricPreviewNSTableView: NSViewRepresentable {
     let lyrics: [LyricLine]
-    let textColor: Color
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(textColor: NSColor(textColor))
+        Coordinator()
     }
 
     func makeNSView(context: Context) -> NSScrollView {
@@ -47,17 +46,11 @@ struct LyricPreviewNSTableView: NSViewRepresentable {
 
     func updateNSView(_ nsView: NSScrollView, context: Context) {
         context.coordinator.lyrics = lyrics
-        context.coordinator.textColor = NSColor(textColor)
         (nsView.documentView as? NSTableView)?.reloadData()
     }
 
     class Coordinator: NSObject {
         var lyrics: [LyricLine] = []
-        var textColor: NSColor
-
-        init(textColor: NSColor) {
-            self.textColor = textColor
-        }
     }
 }
 
@@ -87,7 +80,7 @@ extension LyricPreviewNSTableView.Coordinator: NSTableViewDelegate {
 
         let cell = NSTextField(labelWithString: text)
         cell.lineBreakMode = .byWordWrapping
-        cell.textColor = textColor
+        cell.textColor = .labelColor
         return cell
     }
 }

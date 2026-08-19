@@ -9,7 +9,6 @@ import SwiftUI
 
 struct SearchWindow: View {
     @Environment(ViewModel.self) var viewmodel
-    @Environment(\.colorScheme) private var colorScheme
     @State var trackName: String = ""
     @State var artistName: String = ""
     @State private var searchResults: [SongResult] = []
@@ -22,22 +21,13 @@ struct SearchWindow: View {
     
     private let controlCornerRadius: CGFloat = 12
 
-    private var backgroundBrightness: CGFloat {
-        colorScheme == .dark ? -0.4 : -0.8
-    }
-
-    private var contentForeground: Color {
-        guard let currentBackground = viewmodel.currentBackground else { return .primary }
-        return currentBackground.legibleForeground(afterBrightening: backgroundBrightness)
-    }
-    
     @ViewBuilder
     var searchControlsView: some View {
         HStack {
             Text("Song Name")
-                .foregroundStyle(contentForeground)
+                .foregroundStyle(.primary)
             TextField("", text: $trackName)
-                .foregroundStyle(contentForeground)
+                .foregroundStyle(.primary)
                 .menubarGlass(
                     tint: nil,
                     interactive: true,
@@ -46,9 +36,9 @@ struct SearchWindow: View {
                 )
                 .padding(.trailing, 30)
             Text("Artist Name:")
-                .foregroundStyle(contentForeground)
+                .foregroundStyle(.primary)
             TextField("", text: $artistName)
-                .foregroundStyle(contentForeground)
+                .foregroundStyle(.primary)
                 .menubarGlass(
                     tint: nil,
                     interactive: true,
@@ -113,8 +103,7 @@ struct SearchWindow: View {
             SearchResultsNSTableView(
                 results: searchResults,
                 agreementScores: agreementScores,
-                selectedID: $selectedLyric,
-                textColor: contentForeground
+                selectedID: $selectedLyric
             )
         }
     }
@@ -123,8 +112,7 @@ struct SearchWindow: View {
     var selectedLyricView: some View {
         if let selectedLyric, let selectedLyricLyric = searchResults.first(where: { $0.id == selectedLyric}) {
             LyricPreviewNSTableView(
-                lyrics: selectedLyricLyric.lyrics,
-                textColor: contentForeground
+                lyrics: selectedLyricLyric.lyrics
             )
             .transition(.move(edge: .bottom))
             .frame(maxWidth: .infinity)
@@ -163,7 +151,7 @@ struct SearchWindow: View {
         VStack(alignment: .leading) {
             Text("Searching for \(viewmodel.currentlyPlayingName ?? "-") by \(viewmodel.currentlyPlayingArtist ?? "-")")
                 .font(.caption)
-                .foregroundStyle(contentForeground.opacity(0.7))
+                .foregroundStyle(.secondary)
             searchControlsView
             ZStack {
                 searchResultsView
@@ -356,13 +344,17 @@ struct SearchWindow: View {
                     artistName = newArtist
                 }
             }
-            .tint(viewmodel.currentBackground)
-            .background(
-                viewmodel.currentBackground
-                    .brightness(backgroundBrightness)
-                    .opacity(0.6)
-                    .animation(.smooth, value: viewmodel.currentBackground)
-            )
+            .background {
+                ZStack {
+                    VisualEffectBackground(
+                        material: .hudWindow,
+                        blendingMode: .behindWindow
+                    )
+                    viewmodel.currentBackground
+                        .opacity(0.18)
+                        .animation(.smooth, value: viewmodel.currentBackground)
+                }
+            }
         .navigationTitle("Searching for \(viewmodel.currentlyPlayingName ?? "-") by \(viewmodel.currentlyPlayingArtist ?? "-")")
         .presentedWindowToolbarStyle(.unified)
     }
