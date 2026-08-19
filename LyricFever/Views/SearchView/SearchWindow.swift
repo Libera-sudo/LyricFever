@@ -9,6 +9,7 @@ import SwiftUI
 
 struct SearchWindow: View {
     @Environment(ViewModel.self) var viewmodel
+    @Environment(\.colorScheme) private var colorScheme
     @State var trackName: String = ""
     @State var artistName: String = ""
     @State private var searchResults: [SongResult] = []
@@ -20,15 +21,41 @@ struct SearchWindow: View {
     @State private var searchTask: Task<Void, Never>? = nil
     
     private let overlayHeight: CGFloat = 250
+    private let controlCornerRadius: CGFloat = 12
+
+    private var backgroundBrightness: CGFloat {
+        colorScheme == .dark ? -0.4 : -0.8
+    }
+
+    private var contentForeground: Color {
+        guard let currentBackground = viewmodel.currentBackground else { return .primary }
+        return currentBackground.legibleForeground(afterBrightening: backgroundBrightness)
+    }
     
     @ViewBuilder
     var searchControlsView: some View {
         HStack {
             Text("Song Name")
+                .foregroundStyle(contentForeground)
             TextField("", text: $trackName)
+                .foregroundStyle(contentForeground)
+                .menubarGlass(
+                    tint: nil,
+                    interactive: true,
+                    cornerRadius: controlCornerRadius,
+                    fallback: EmptyView()
+                )
                 .padding(.trailing, 30)
             Text("Artist Name:")
+                .foregroundStyle(contentForeground)
             TextField("", text: $artistName)
+                .foregroundStyle(contentForeground)
+                .menubarGlass(
+                    tint: nil,
+                    interactive: true,
+                    cornerRadius: controlCornerRadius,
+                    fallback: EmptyView()
+                )
                 .padding(.trailing, 30)
             Button {
                 searchResults = []
@@ -49,6 +76,18 @@ struct SearchWindow: View {
             .disabled(isFetching)
             .keyboardShortcut(.defaultAction)
             .tint(.primary)
+            .menubarGlassButtonStyle()
+            Button("Remove Lyrics") {
+                guard let trackID = viewmodel.currentlyPlaying else { return }
+                let removedLyricsWerePreviewed = lyricsAreApplied
+                viewmodel.deleteLyric(trackID: trackID)
+                if removedLyricsWerePreviewed {
+                    selectedLyric = nil
+                }
+                lyricsAreApplied = false
+            }
+            .disabled(viewmodel.currentlyPlaying == nil || viewmodel.lyricsIsEmptyPostLoad)
+            .menubarGlassButtonStyle()
         }
     }
     
@@ -64,7 +103,8 @@ struct SearchWindow: View {
             SearchResultsNSTableView(
                 results: searchResults,
                 agreementScores: agreementScores,
-                selectedID: $selectedLyric
+                selectedID: $selectedLyric,
+                textColor: contentForeground
             )
         }
     }
@@ -73,7 +113,10 @@ struct SearchWindow: View {
     var selectedLyricView: some View {
         if let selectedLyric, let selectedLyricLyric = searchResults.first(where: { $0.id == selectedLyric}) {
             HStack {
-                LyricPreviewNSTableView(lyrics: selectedLyricLyric.lyrics)
+                LyricPreviewNSTableView(
+                    lyrics: selectedLyricLyric.lyrics,
+                    textColor: contentForeground
+                )
                               .frame(width: 400)
                 Spacer()
                 Button {
@@ -100,6 +143,7 @@ struct SearchWindow: View {
                 .buttonStyle(.borderedProminent)
                 .disabled(lyricsAreApplied)
                 .tint(lyricsAreApplied ? .gray : .green)
+                .menubarGlassButtonStyle()
             }
             .padding()
 //            .id(selectedLyric)
@@ -313,6 +357,12 @@ struct SearchWindow: View {
                 }
             }
             .tint(viewmodel.currentBackground)
+            .background(
+                viewmodel.currentBackground
+                    .brightness(backgroundBrightness)
+                    .opacity(0.6)
+                    .animation(.smooth, value: viewmodel.currentBackground)
+            )
         .navigationTitle("Searching for \(viewmodel.currentlyPlayingName ?? "-") by \(viewmodel.currentlyPlayingArtist ?? "-")")
         .presentedWindowToolbarStyle(.unified)
     }

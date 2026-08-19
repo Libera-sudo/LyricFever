@@ -11,6 +11,7 @@ struct SearchResultsNSTableView: NSViewRepresentable {
     let results: [SongResult]
     let agreementScores: [UUID: Double]
     @Binding var selectedID: UUID?
+    let textColor: Color
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
@@ -59,6 +60,7 @@ struct SearchResultsNSTableView: NSViewRepresentable {
         let c = context.coordinator
         c.results = results
         c.parent = self
+        c.textColor = NSColor(textColor)
 
         guard let tableView = nsView.documentView as? NSTableView else { return }
         tableView.reloadData()
@@ -73,9 +75,11 @@ struct SearchResultsNSTableView: NSViewRepresentable {
     class Coordinator: NSObject {
         var parent: SearchResultsNSTableView
         var results: [SongResult] = []
+        var textColor: NSColor
 
         init(_ parent: SearchResultsNSTableView) {
             self.parent = parent
+            self.textColor = NSColor(parent.textColor)
         }
     }
 }
@@ -109,6 +113,7 @@ extension SearchResultsNSTableView.Coordinator: NSTableViewDelegate {
         }
         let cell = NSTextField(labelWithString: text)
         cell.lineBreakMode = .byTruncatingTail
+        cell.textColor = textColor
         return cell
     }
 
