@@ -14,6 +14,29 @@ enum ButtonState {
     case loading
     case clickable
     case missing
+
+    /// Only an active lyric control carries the album colour into Liquid Glass.
+    var glassTint: Color? {
+        self == .enabled ? ViewModel.shared.currentBackground : nil
+    }
+
+    /// Disabled controls retain glass depth but do not react to pointer movement or clicks.
+    var glassIsInteractive: Bool {
+        self != .disabled
+    }
+
+    /// Liquid Glass tints with the extracted colour directly instead of adding the fallback's
+    /// 0.3 brightness. Compare against that unbrightened tint; if it is absent, white is the
+    /// safe choice for untinted regular glass over this forced-dark panel.
+    var glassForegroundStyle: Color {
+        switch self {
+            case .enabled:
+                guard let background = ViewModel.shared.currentBackground else { return .white }
+                return background.legibleForeground(afterBrightening: 0)
+            case .disabled, .clickable, .loading, .missing:
+                return .white
+        }
+    }
     
     var fillStyle: AnyShapeStyle {
         switch self {
@@ -32,14 +55,14 @@ enum ButtonState {
         }
     }
 
-    /// The icon colour that stays readable on top of `fillStyle`.
+    /// The icon colour that stays readable on top of the legacy fallback background.
     ///
     /// Callers force `colorScheme` to `.dark`, which makes the icon white by default. That is
     /// right for the inactive states, whose `.thickMaterial` stays dark over this panel, but
     /// wrong for `.enabled`: album colours are deliberately lightened when extracted, and the
-    /// background is brightened by another 0.3 before being drawn, so a white icon lands on a
-    /// near-white field. With no album colour at all the fill falls back to `.primary`, which
-    /// under the forced dark scheme is pure white and hides the icon completely.
+    /// fallback background is brightened by another 0.3 before being drawn, so a white icon
+    /// lands on a near-white field. With no album colour at all the fallback is `.primary`,
+    /// which under the forced dark scheme is pure white and hides the icon completely.
     var foregroundStyle: Color {
         switch self {
             case .enabled:
@@ -52,8 +75,7 @@ enum ButtonState {
 }
 
 extension Color {
-    /// Black or white -- whichever keeps contrast once this colour has been brightened the way
-    /// the button background is.
+    /// Black or white -- whichever keeps contrast after applying the background's brightness.
     ///
     /// Judged on WCAG relative luminance rather than HSB brightness: a saturated yellow and a
     /// saturated blue can report the same brightness while differing enormously in how light

@@ -32,7 +32,10 @@ public struct SmallMenubarButtonStyle: ButtonStyle {
                                 .fontWeight(.black)
                         }
                     }
-                    .foregroundStyle(buttonState.foregroundStyle)
+                    .menubarGlassForegroundStyle(
+                        glass: buttonState.glassForegroundStyle,
+                        fallback: buttonState.foregroundStyle
+                    )
                     if disabled {
                         Capsule()
                             .fill(Color.white)
@@ -47,8 +50,11 @@ public struct SmallMenubarButtonStyle: ButtonStyle {
         .animation(.bouncy, value: buttonState)
         .frame(minWidth: 30, maxWidth: .infinity)
         .padding(.vertical, 16)
-        .background(
-            Rectangle()
+        .menubarGlass(
+            tint: buttonState.glassTint,
+            interactive: buttonState.glassIsInteractive,
+            cornerRadius: 12,
+            fallback: Rectangle()
                 .fill(buttonState.fillStyle)
                 .brightness(disabled ? 0.05 : 0.3)
                 .opacity(disabled ? 1 : 0.7)

@@ -44,7 +44,27 @@ struct MenubarWindowView: View {
         }
     }
 
+    enum NavigationDirection {
+        case forward
+        case backward
+    }
+
     @State var page: Page = .main
+    @State private var navigationDirection: NavigationDirection = .forward
+
+    private var pageTransition: AnyTransition {
+        switch navigationDirection {
+            case .forward:
+                .asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .leading))
+            case .backward:
+                .asymmetric(insertion: .move(edge: .leading), removal: .move(edge: .trailing))
+        }
+    }
+
+    private func navigate(to destination: Page, direction: NavigationDirection = .forward) {
+        navigationDirection = direction
+        page = destination
+    }
 
     @ViewBuilder
     var profilePicViewHeaderView: some View {
@@ -171,7 +191,7 @@ struct MenubarWindowView: View {
                 openWindow(id: "search")
             }
             SmallMenubarButton(buttonText: "", imageText: "translate", buttonState: translationState) {
-                page = .translationSettings
+                navigate(to: .translationSettings)
             }
             .disabled(translationState == .disabled)
         }
@@ -198,25 +218,7 @@ struct MenubarWindowView: View {
     /// longest possible track is what makes single-character precision draggable at all.
     @ViewBuilder
     var truncationSlider: some View {
-        Group {
-            if #available(macOS 26.0, *) {
-                Slider(
-                    value: truncationBinding,
-                    in: 100...320,
-                    label: { Text("Menubar Size") },
-                    ticks: {
-                        SliderTick(100)
-                        SliderTick(160)
-                        SliderTick(220)
-                        SliderTick(280)
-                    }
-                )
-            } else {
-                Slider(value: truncationBinding, in: 100...320) {
-                    Text("Menubar Size")
-                }
-            }
-        }
+        MenubarTruncationSlider(value: truncationBinding)
         .labelsHidden()
         .frame(maxWidth: .infinity)
         .tint(.secondary)
@@ -226,11 +228,12 @@ struct MenubarWindowView: View {
     var systemControlView: some View {
         HStack {
             Button {
-                page = .moreOptions
+                navigate(to: .moreOptions)
             } label: {
                 Text("...")
             }
             .frame(width: 30)
+            .menubarGlassButtonStyle()
             if viewmodel.userDefaultStorage.airplayDelay {
                 Image(systemName: "airplayaudio")
                     .opacity(0.8)
@@ -243,6 +246,7 @@ struct MenubarWindowView: View {
             Button("Quit") {
                 NSApplication.shared.terminate(nil)
             }
+            .menubarGlassButtonStyle()
         }
         .padding(.top, 8)
     }
@@ -274,7 +278,7 @@ struct MenubarWindowView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .disabled(!viewmodel.userDefaultStorage.hasOnboarded)
             disclosureRow("Settings", value: "") {
-                page = .settings
+                navigate(to: .settings)
             }
             Button {
                 openURL(URL(string: "https://buymeacoffee.com/aviwadhwalyricfever")!)
@@ -334,7 +338,7 @@ struct MenubarWindowView: View {
     func pageHeader(_ title: String, back: Page) -> some View {
         HStack(spacing: 6) {
             Button {
-                page = back
+                navigate(to: back, direction: .backward)
             } label: {
                 Image(systemName: "chevron.left")
                     .bold()
@@ -445,10 +449,10 @@ struct MenubarWindowView: View {
                 }
             }
             disclosureRow("Source (this song)", value: sourceLanguageLabel) {
-                page = .languageChoice(.sourceForThisSong)
+                navigate(to: .languageChoice(.sourceForThisSong))
             }
             disclosureRow("Target (all songs)", value: viewmodel.userLocaleLanguageString) {
-                page = .languageChoice(.targetForAllSongs)
+                navigate(to: .languageChoice(.targetForAllSongs))
             }
             Divider()
             Toggle("Romanize", isOn: $viewmodel.userDefaultStorage.romanize)
@@ -515,16 +519,22 @@ struct MenubarWindowView: View {
             switch page {
                 case .main:
                     mainPage
+                        .transition(pageTransition)
                 case .moreOptions:
                     moreOptionsPage
+                        .transition(pageTransition)
                 case .settings:
                     settingsPage
+                        .transition(pageTransition)
                 case .translationSettings:
                     translationSettingsPage
+                        .transition(pageTransition)
                 case .languageChoice(let choice):
                     languageChoicePage(choice)
+                        .transition(pageTransition)
             }
         }
+        .animation(.smooth(duration: 0.3), value: page)
         .foregroundStyle(.white)
         .padding(14)
         .background(
