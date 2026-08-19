@@ -110,7 +110,11 @@ class NetEaseLyricProvider: LyricProvider {
 
                 let parser = LyricsParser(lyrics: cleaned)
                 // NetEase incorrectly advertises lyrics for EVERY song when it only has the name, artist, composer at 0.0 *sigh*
-                if parser.lyrics.last?.startTimeMS == 0.0 {
+                // `isEmpty` first, and not only for tidiness: on an empty array `.last` is nil
+                // and `nil == 0.0` is false, so a body that parsed to nothing slipped past this
+                // guard, was announced as the chosen candidate, and returned zero lines --
+                // ending the scan instead of moving to the next candidate.
+                if parser.lyrics.isEmpty || parser.lyrics.last?.startTimeMS == 0.0 {
                     continue
                 }
                 print("NetEase chose candidate \(candidate.song.name) by \(candidate.ground).")
@@ -172,7 +176,10 @@ extension NetEaseLyricProvider {
                 guard let lrcText = neteaseLyrics.lrc?.lyric else { continue }
                 let cleaned = unescapeHTMLEntities(in: lrcText)
                 let parsed = LyricsParser(lyrics: cleaned).lyrics
-                if parsed.last?.startTimeMS == 0.0 { continue }
+                // Same nil-vs-zero trap as the fetch path: without the `isEmpty` test a body
+                // that parsed to nothing became a search result with no lyrics behind it, which
+                // showed up as an empty preview pane.
+                if parsed.isEmpty || parsed.last?.startTimeMS == 0.0 { continue }
                 
                 results.append(SongResult(lyricType: "NetEase", songName: song.name, albumName: song.album.name, artistName: firstArtist.name, lyrics: parsed))
             } catch {
