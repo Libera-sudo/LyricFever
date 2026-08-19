@@ -67,11 +67,14 @@ struct MenubarLabelView: View {
         if viewmodel.isFetching {
             return String(localized: "searching…")
         }
+        if viewmodel.currentTrackIsInstrumental {
+            return String(localized: "instrumental")
+        }
         if viewmodel.lyricsIsEmptyPostLoad {
             return String(localized: "no lyrics")
         }
         // Playing, lyrics loaded, but this moment has no line of its own.
-        return String(localized: "instrumental")
+        return String(localized: "interlude")
     }
 
     var body: some View {

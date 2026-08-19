@@ -184,6 +184,8 @@ import MediaRemoteAdapter
     // Delayed variable to hook onto for whether to display lyrics or not.
     // Prevents flickering that occurs when we directly bind to currentlyPlayingLyrics.isEmpty()
     var lyricsIsEmptyPostLoad: Bool = true
+    // Separates a track that has no vocals from one whose lyrics were not found.
+    var currentTrackIsInstrumental = false
 
     /// Width the menubar lyric is drawn at, in points. Held steady while a song plays, and
     /// remeasured only when the screen arrangement changes -- see `MenubarSpace`.
@@ -280,24 +282,28 @@ import MediaRemoteAdapter
         guard let currentlyPlaying, let currentlyPlayingName else {
             return NetworkFetchReturn(lyrics: [])
         }
+        var isInstrumental = false
         for networkLyricProvider in allNetworkLyricProviders {
             do {
                 print("FetchAllNetworkLyrics: fetching from \(networkLyricProvider.providerName)")
                 let lyrics = try await networkLyricProvider.fetchNetworkLyrics(trackName: currentlyPlayingName, trackID: currentlyPlaying, currentlyPlayingArtist: currentlyPlayingArtist, currentAlbumName: currentAlbumName, duration: duration > 0 ? duration : nil)
                 if !lyrics.lyrics.isEmpty {
+                    currentTrackIsInstrumental = false
                     print("FetchAllNetworkLyrics: returning lyrics from \(networkLyricProvider.providerName)")
                     // thats how i save to coredata
                     let _ = SongObject(from: lyrics.lyrics, with: coreDataContainer.viewContext, trackID: currentlyPlaying, trackName: currentlyPlayingName)
                     saveCoreData()
                     return lyrics
                 } else {
+                    isInstrumental = isInstrumental || lyrics.isInstrumental
                     print("FetchAllNetworkLyrics: no lyrics from \(networkLyricProvider.providerName)")
                 }
             } catch {
                 print("Caught exception on \(networkLyricProvider.providerName): \(error)")
             }
         }
-        return NetworkFetchReturn(lyrics: [])
+        currentTrackIsInstrumental = isInstrumental
+        return NetworkFetchReturn(lyrics: [], isInstrumental: isInstrumental)
     }
     
     #if os(macOS)
@@ -550,6 +556,7 @@ import MediaRemoteAdapter
         translatedLyric = []
         romanizedLyrics = []
         chineseConversionLyrics = []
+        currentTrackIsInstrumental = false
         
         if userDefaultStorage.hasOnboarded, let currentlyPlaying = currentlyPlaying, let currentlyPlayingName = currentlyPlayingName, let lyrics = await fetch(for: currentlyPlaying, currentlyPlayingName) {
             setNewLyricsColorTranslationRomanizationAndStartUpdater(with: lyrics)

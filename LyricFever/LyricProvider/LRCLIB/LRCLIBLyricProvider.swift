@@ -36,7 +36,7 @@ class LRCLIBLyricProvider: LyricProvider {
         let req = URLRequest(url: url)
         let urlResponseAndData = try await LRCLIBUserAgentSession.data(for: req)
         let lrcLyrics = try JSONDecoder().decode(LRCLIBLyrics.self, from: urlResponseAndData.0)
-        return NetworkFetchReturn(lyrics: lrcLyrics.lyrics)
+        return NetworkFetchReturn(lyrics: lrcLyrics.lyrics, isInstrumental: lrcLyrics.instrumental)
     }
     
     func fetchNetworkLyrics2(trackName: String, trackID: String, currentlyPlayingArtist: String?, currentAlbumName: String?) async throws -> NetworkFetchReturn {

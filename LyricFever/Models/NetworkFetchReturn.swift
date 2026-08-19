@@ -7,6 +7,12 @@
 
 struct NetworkFetchReturn {
     let lyrics: [LyricLine]
+    let isInstrumental: Bool
+
+    init(lyrics: [LyricLine], isInstrumental: Bool = false) {
+        self.lyrics = lyrics
+        self.isInstrumental = isInstrumental
+    }
     
     func processed(withSongName songName: String, duration: Int) -> NetworkFetchReturn {
         let filtered = lyrics.filter { !$0.words.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
@@ -17,6 +23,6 @@ struct NetworkFetchReturn {
         }
         
         let nowPlayingLine = LyricLine(startTime: Double(duration + 5000), words: "Now Playing: \(songName)")
-        return NetworkFetchReturn(lyrics: filtered + [nowPlayingLine])
+        return NetworkFetchReturn(lyrics: filtered + [nowPlayingLine], isInstrumental: isInstrumental)
     }
 }
