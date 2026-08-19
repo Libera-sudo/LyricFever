@@ -29,6 +29,7 @@ struct MenubarWindowView: View {
         case moreOptions
         case settings
         case translationSettings
+        case romanization
         case languageChoice(LanguageChoice)
     }
 
@@ -157,18 +158,35 @@ struct MenubarWindowView: View {
         }
     }
 
-    var translationStatus: (text: String, showsHelp: Bool) {
+    var translationStatus: String {
         if viewmodel.lyricsIsEmptyPostLoad || viewmodel.isFetching {
-            return (String(localized: "Nothing to Translate 🎵"), false)
+            return String(localized: "Nothing to Translate 🎵")
         } else if viewmodel.isFetchingTranslation {
-            return (String(localized: "Translating Lyrics ⏳"), false)
+            return String(localized: "Translating Lyrics ⏳")
         } else if viewmodel.translationAlreadyInTargetLanguage {
-            return (String(localized: "Lyrics Already in \(viewmodel.userLocaleLanguageString) 😊"), false)
+            return String(localized: "Lyrics Already in \(viewmodel.userLocaleLanguageString) 😊")
         } else if !viewmodel.translatedLyric.isEmpty {
-            return (String(localized: "Translated Lyrics 😃"), false)
+            return String(localized: "Translated Lyrics 😃")
         } else {
-            return (String(localized: "No Translation ☹️"), true)
+            return String(localized: "No Translation ☹️")
         }
+    }
+
+    var romanizationSummary: String {
+        let romanization = viewmodel.userDefaultStorage.romanize ? "On" : "Off"
+        guard let conversion = ChineseConversion(rawValue: viewmodel.userDefaultStorage.chinesePreference),
+              conversion != .none else {
+            return romanization
+        }
+
+        let conversionLabel = switch conversion {
+            case .none: ""
+            case .simplified: "Simplified"
+            case .traditionalNeutral: "Trad. Neutral"
+            case .traditionalTaiwan: "Trad. Taiwan"
+            case .traditionalHK: "Trad. HK"
+        }
+        return "\(romanization) · \(conversionLabel)"
     }
     
     var searchState: ButtonState {
@@ -436,16 +454,9 @@ struct MenubarWindowView: View {
             Toggle("Translate to \(viewmodel.userLocaleLanguageString)", isOn: $viewmodel.userDefaultStorage.translate)
                 .disabled(!viewmodel.userDefaultStorage.hasOnboarded)
             if viewmodel.userDefaultStorage.translate {
-                Text(status.text)
+                Text(status)
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                if status.showsHelp {
-                    Button("Translation Help") {
-                        openURL(URL(string: "https://aviwadhwa.com/TranslationHelp")!)
-                    }
-                    .buttonStyle(.borderless)
-                    .font(.caption)
-                }
             }
             disclosureRow("Source (this song)", value: sourceLanguageLabel) {
                 navigate(to: .languageChoice(.sourceForThisSong))
@@ -453,6 +464,19 @@ struct MenubarWindowView: View {
             disclosureRow("Target (all songs)", value: viewmodel.userLocaleLanguageString) {
                 navigate(to: .languageChoice(.targetForAllSongs))
             }
+            Divider()
+            disclosureRow("Romanization", value: romanizationSummary) {
+                navigate(to: .romanization)
+            }
+        }
+        .frame(width: 300)
+    }
+
+    @ViewBuilder
+    var romanizationPage: some View {
+        @Bindable var viewmodel = viewmodel
+        VStack(alignment: .leading, spacing: 8) {
+            pageHeader("Romanization", back: .translationSettings)
             Divider()
             Toggle("Romanize", isOn: $viewmodel.userDefaultStorage.romanize)
             Text("Chinese Conversion")
@@ -524,6 +548,8 @@ struct MenubarWindowView: View {
                     settingsPage
                 case .translationSettings:
                     translationSettingsPage
+                case .romanization:
+                    romanizationPage
                 case .languageChoice(let choice):
                     languageChoicePage(choice)
             }
