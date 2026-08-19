@@ -29,7 +29,8 @@ struct MenubarWindowView: View {
         case moreOptions
         case settings
         case translationSettings
-        case translationLanguages
+        case translationTargetLanguage
+        case translationSourceLanguage
         case chineseConversion
     }
 
@@ -431,15 +432,29 @@ struct MenubarWindowView: View {
         VStack(alignment: .leading, spacing: 8) {
             pageHeader("Translation", back: .main)
             Divider()
-            Toggle("Translate", isOn: $viewmodel.userDefaultStorage.translate)
-                .disabled(!viewmodel.userDefaultStorage.hasOnboarded)
+            HStack {
+                Toggle("Translate to \(viewmodel.userLocaleLanguageString)",
+                       isOn: $viewmodel.userDefaultStorage.translate)
+                    .disabled(!viewmodel.userDefaultStorage.hasOnboarded)
+                Spacer()
+                Button {
+                    navigate(to: .translationTargetLanguage)
+                } label: {
+                    Image(systemName: "chevron.right")
+                        .foregroundStyle(.secondary)
+                        .padding(.vertical, 6)
+                        .padding(.leading, 8)
+                        .contentShape(.rect)
+                }
+                .buttonStyle(.plain)
+            }
             if viewmodel.userDefaultStorage.translate {
                 Text(status)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-            disclosureRow("Translate", value: "\(sourceLanguageLabel) → \(viewmodel.userLocaleLanguageString)") {
-                navigate(to: .translationLanguages)
+            disclosureRow("Source (this song)", value: sourceLanguageLabel) {
+                navigate(to: .translationSourceLanguage)
             }
             Toggle("Romanize", isOn: $viewmodel.userDefaultStorage.romanize)
             disclosureRow("Chinese Conversion", value: chineseConversionLabel) {
@@ -471,37 +486,14 @@ struct MenubarWindowView: View {
     /// Uses List rather than ScrollView + VStack: a probe build showed the same Button firing
     /// reliably outside a ScrollView and never inside one, so the ScrollView was swallowing the
     /// clicks. List is backed by AppKit's own scrolling table, which routes them properly.
-    var translationLanguagesPage: some View {
+    var translationTargetLanguagePage: some View {
         // Read the current value once instead of per row.
         let currentTarget = viewmodel.translationTargetLanguage
-        let currentSource = viewmodel.translationSourceLanguage
 
         VStack(alignment: .leading, spacing: 6) {
-            pageHeader("Translate", back: .translationSettings)
+            pageHeader("Translate to", back: .translationSettings)
             Divider()
             List {
-                Text("Source (this song)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
-                choiceRow("Auto", selected: currentSource == nil) {
-                    setSourceLanguage(nil)
-                }
-                ForEach(supportedLanguages, id: \.maximalIdentifier) { language in
-                    choiceRow(languageLabel(language),
-                              selected: currentSource?.maximalIdentifier == language.maximalIdentifier) {
-                        setSourceLanguage(language)
-                    }
-                }
-                Divider()
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
-                Text("Target (all songs)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
                 choiceRow("System (\(viewmodel.systemLocaleString))", selected: currentTarget == nil) {
                     viewmodel.translationTargetLanguage = nil
                 }
@@ -509,6 +501,32 @@ struct MenubarWindowView: View {
                     choiceRow(languageLabel(language),
                               selected: currentTarget?.maximalIdentifier == language.maximalIdentifier) {
                         viewmodel.translationTargetLanguage = language
+                    }
+                }
+            }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .frame(height: 280)
+        }
+        .frame(width: 300)
+    }
+
+    @ViewBuilder
+    var translationSourceLanguagePage: some View {
+        // Read the current value once instead of per row.
+        let currentSource = viewmodel.translationSourceLanguage
+
+        VStack(alignment: .leading, spacing: 6) {
+            pageHeader("Source Language", back: .translationSettings)
+            Divider()
+            List {
+                choiceRow("Auto", selected: currentSource == nil) {
+                    setSourceLanguage(nil)
+                }
+                ForEach(supportedLanguages, id: \.maximalIdentifier) { language in
+                    choiceRow(languageLabel(language),
+                              selected: currentSource?.maximalIdentifier == language.maximalIdentifier) {
+                        setSourceLanguage(language)
                     }
                 }
             }
@@ -530,8 +548,10 @@ struct MenubarWindowView: View {
                     settingsPage
                 case .translationSettings:
                     translationSettingsPage
-                case .translationLanguages:
-                    translationLanguagesPage
+                case .translationTargetLanguage:
+                    translationTargetLanguagePage
+                case .translationSourceLanguage:
+                    translationSourceLanguagePage
                 case .chineseConversion:
                     chineseConversionPage
             }
