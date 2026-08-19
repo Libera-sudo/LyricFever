@@ -28,6 +28,9 @@ class AppleMusicPlayer {
     var trackName: String? {
         appleMusicScript?.currentTrack?.name
     }
+    var genre: String? {
+        appleMusicScript?.currentTrack?.genre
+    }
     
     @MainActor
     var currentTime: TimeInterval? {

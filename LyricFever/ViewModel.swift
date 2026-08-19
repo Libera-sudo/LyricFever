@@ -221,13 +221,14 @@ import MediaRemoteAdapter
     var lRCLyricProvider = LRCLIBLyricProvider()
     var netEaseLyricProvider = NetEaseLyricProvider()
     var qqMusicLyricProvider = QQMusicLyricProvider()
+    var musixmatchLyricProvider = MusixmatchLyricProvider()
     #if os(macOS)
     var localFileUploadProvider = LocalFileUploadProvider()
     #endif
-    @ObservationIgnored lazy var allNetworkLyricProviders: [LyricProvider] = [lRCLyricProvider, netEaseLyricProvider, qqMusicLyricProvider]
+    @ObservationIgnored lazy var allNetworkLyricProviders: [LyricProvider] = [lRCLyricProvider, netEaseLyricProvider, qqMusicLyricProvider, musixmatchLyricProvider]
     
     // custom order because LRCLIB is tweaking for the time being
-    @ObservationIgnored lazy var allNetworkLyricProvidersForSearch: [LyricProvider] = [netEaseLyricProvider, qqMusicLyricProvider, lRCLyricProvider]
+    @ObservationIgnored lazy var allNetworkLyricProvidersForSearch: [LyricProvider] = [netEaseLyricProvider, qqMusicLyricProvider, lRCLyricProvider, musixmatchLyricProvider]
     
     var isFirstFetch = true
     
@@ -303,6 +304,15 @@ import MediaRemoteAdapter
                 }
             } catch {
                 print("Caught exception on \(networkLyricProvider.providerName): \(error)")
+            }
+        }
+        if !isInstrumental, let genre = appleMusicPlayer.genre {
+            let instrumentalGenres = ["Classical", "Instrumental", "New Age", "Ambient"]
+            // This is a guess, not knowledge: Classical also includes opera and art songs, so
+            // missing lyrics can mislabel a vocal work. One wrong menu-bar word is a smaller
+            // cost than presenting common concertos and other wordless pieces as failed lookups.
+            isInstrumental = instrumentalGenres.contains {
+                genre.range(of: $0, options: [.caseInsensitive, .diacriticInsensitive]) != nil
             }
         }
         currentTrackIsInstrumental = isInstrumental

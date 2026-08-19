@@ -99,6 +99,7 @@ struct SearchWindow: View {
                 systemImage: "music.note.list",
                 description: Text("Try a shorter song name, or drop the artist.")
             )
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             SearchResultsNSTableView(
                 results: searchResults,
