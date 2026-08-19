@@ -67,9 +67,12 @@ struct MenubarLabelView: View {
     /// the next line's bound it, and `CurrentTimeWithStoredDate` interpolates between player
     /// updates from the wall clock, so this costs no Apple events however often it is sampled.
     ///
-    /// The travel is squeezed into the middle of the line -- still at the head for the first
-    /// stretch, already at the tail for the last -- because a line that starts moving instantly
-    /// is unreadable, and one still moving as it is replaced never gets its ending read.
+    /// Two things shape the pacing. The travel is squeezed into the middle of the line -- still
+    /// at the head for the first quarter, already at the tail for the last -- because a line
+    /// that starts moving instantly is unreadable and one still moving as it is replaced never
+    /// gets its ending read. And it never crawls: a long line that only just overflows would
+    /// otherwise inch along for seconds, so the travel is also capped at whatever
+    /// `minimumScrollSpeed` needs, finishing early and resting at the tail instead.
     ///
     /// Nothing here resizes the item. The canvas is a constant width and only the text inside it
     /// moves, which is what makes scrolling safe at all: a status item that changes width gets
@@ -79,21 +82,24 @@ struct MenubarLabelView: View {
         let overflow = Self.overflow(of: menuBarTitle, within: viewmodel.menubarLyricWidth)
         guard overflow > 0 else { return }
         while !Task.isCancelled {
-            if viewmodel.isPlaying, let progress = lineProgress() {
-                // A quarter of the line at each end is spent still. The travel is quicker for
-                // it, which reads better than a constant creep: the eye wants to rest on the
-                // opening words, catch up in one sweep, then sit on the ending.
+            if viewmodel.isPlaying, let line = currentLineTiming() {
                 let lead = 0.25, trail = 0.75
-                let travelled = min(max((progress - lead) / (trail - lead), 0), 1)
+                let window = (trail - lead) * line.duration
+                let travel = min(window, overflow / Self.minimumScrollSpeed * 1000)
+                let elapsed = line.elapsed - lead * line.duration
+                let travelled = travel > 0 ? min(max(elapsed / travel, 0), 1) : 1
                 scrollOffset = overflow * travelled
             }
             try? await Task.sleep(for: .milliseconds(33))
         }
     }
 
-    /// How far through the current lyric line playback has got, 0 to 1. Nil when there is no
-    /// line, or when the line has no successor to bound it.
-    private func lineProgress() -> Double? {
+    /// Points per second below which the scroll is not allowed to drop.
+    static let minimumScrollSpeed: Double = 55
+
+    /// Where playback sits inside the current lyric line, in milliseconds. Nil when there is no
+    /// line to measure against.
+    private func currentLineTiming() -> (elapsed: Double, duration: Double)? {
         let lines = viewmodel.currentlyPlayingLyrics
         guard let index = viewmodel.currentlyPlayingLyricsIndex,
               lines.indices.contains(index) else { return nil }
@@ -102,7 +108,7 @@ struct MenubarLabelView: View {
         let end = lines.indices.contains(index + 1) ? lines[index + 1].startTimeMS : start + 5000
         guard end > start else { return nil }
         let now = viewmodel.currentTime.adjustedCurrentTime(for: Date())
-        return min(max((now - start) / (end - start), 0), 1)
+        return (elapsed: now - start, duration: end - start)
     }
 
     /// Identifies the thing being scrolled. The width belongs in here too: re-fitting the item
