@@ -519,8 +519,13 @@ struct MenubarWindowView: View {
         // made it worse, since both were then on screen for the whole animation; a crossfade
         // has only one page at full opacity at a time and cannot fold anything.
         .fixedSize(horizontal: false, vertical: true)
-        .transition(.opacity)
-        .animation(.smooth(duration: 0.22), value: page)
+        // A shade of scale under the fade so the page reads as arriving rather than merely
+        // appearing. It is a render-time effect and takes no part in layout, so unlike the
+        // slide it cannot pull the two pages into fighting over the same space.
+        .transition(.opacity.combined(with: .scale(scale: 0.97)))
+        // `.snappy` rather than `.smooth`: it front-loads the movement and settles with a hint
+        // of spring, which is what makes a short animation feel quick instead of merely brief.
+        .animation(.snappy(duration: 0.18, extraBounce: 0.05), value: page)
         .foregroundStyle(.white)
         .padding(14)
         .background(
