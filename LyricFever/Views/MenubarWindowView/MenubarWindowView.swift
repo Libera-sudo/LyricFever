@@ -16,6 +16,7 @@ struct MenubarWindowView: View {
     @Environment(\.dismiss) var dismiss
     @Environment(\.colorScheme) var colorScheme
     @State var supportedLanguages: [Locale.Language] = []
+    @State var appleMusicAuthorizationRefresh = false
 
     /// Which panel page is showing.
     ///
@@ -25,6 +26,8 @@ struct MenubarWindowView: View {
     /// menu dismissed the panel and took the menu with it. Nothing here pops out of the panel.
     enum Page: Equatable {
         case main
+        case moreOptions
+        case settings
         case translationSettings
         case languageChoice(LanguageChoice)
     }
@@ -174,40 +177,6 @@ struct MenubarWindowView: View {
         }
     }
     
-    /// AirPlay costs about two seconds of latency, and `AppleMusicPlayer.currentTime`
-    /// subtracts that when this is on. The toggle used to sit inside a `currentPlayer ==
-    /// .spotify` branch together with the Spotify Connect controls, so the one player that
-    /// actually reads the flag could never reach it.
-    @ViewBuilder
-    var streamingDelayView: some View {
-        @Bindable var viewmodel = viewmodel
-        Toggle("AirPlay Audio Delay", isOn: $viewmodel.userDefaultStorage.airplayDelay)
-            .disabled(!viewmodel.userDefaultStorage.hasOnboarded)
-        Divider()
-    }
-    
-    @ViewBuilder
-    var otherOptions: some View {
-        @Bindable var viewmodel = viewmodel
-        Toggle("Show Song Details in Menubar", isOn: $viewmodel.userDefaultStorage.showSongDetailsInMenubar)
-        Divider()
-        streamingDelayView
-        Button("Settings") {
-            openWindow(id: "onboarding")
-            NSApplication.shared.activate(ignoringOtherApps: true)
-            // send notification to check auth
-            NotificationCenter.default.post(name: Notification.Name("didClickSettings"), object: nil)
-        }.keyboardShortcut("s")
-        LaunchAtLogin.Toggle(String(localized: "Launch at Login"))
-        .disabled(!viewmodel.userDefaultStorage.hasOnboarded)
-        .keyboardShortcut("l")
-        Divider()
-            .keyboardShortcut("u")
-        Button("Buy Me A Beer (Thank You)!") {
-            openURL(URL(string: "https://buymeacoffee.com/aviwadhwalyricfever")!)
-        }
-    }
-    
     var truncationBinding: Binding<Double> {
         Binding(
             get: { Double(viewmodel.userDefaultStorage.menubarWidth) },
@@ -256,28 +225,12 @@ struct MenubarWindowView: View {
     @ViewBuilder
     var systemControlView: some View {
         HStack {
-            if #available(macOS 26.0, *) {
-                Menu {
-                    otherOptions
-//                        .foregroundStyle(viewmodel.currentBackground ?? .primary)
-                } label: {
-
-                        Text("...")
-                }
-                .environment(\.colorScheme, .dark)
-                .menuIndicator(.hidden)
-            } else {
-                Menu {
-                    otherOptions
-                        .foregroundStyle(viewmodel.currentBackground ?? .primary)
-                } label: {
-
-                        Text("...")
-                }
-                .frame(width: 30)
-                .environment(\.colorScheme, .dark)
-                .menuIndicator(.hidden)
+            Button {
+                page = .moreOptions
+            } label: {
+                Text("...")
             }
+            .frame(width: 30)
             if viewmodel.userDefaultStorage.airplayDelay {
                 Image(systemName: "airplayaudio")
                     .opacity(0.8)
@@ -299,6 +252,81 @@ struct MenubarWindowView: View {
             headerView
             Divider()
             systemControlView
+        }
+        .frame(width: 300)
+    }
+
+    @ViewBuilder
+    var moreOptionsPage: some View {
+        @Bindable var viewmodel = viewmodel
+        VStack(alignment: .leading, spacing: 8) {
+            pageHeader("Options", back: .main)
+            Divider()
+            Toggle("Show Song Details in Menubar", isOn: $viewmodel.userDefaultStorage.showSongDetailsInMenubar)
+                .toggleStyle(.switch)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Toggle("AirPlay Audio Delay", isOn: $viewmodel.userDefaultStorage.airplayDelay)
+                .toggleStyle(.switch)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .disabled(!viewmodel.userDefaultStorage.hasOnboarded)
+            LaunchAtLogin.Toggle(String(localized: "Launch at Login"))
+                .toggleStyle(.switch)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .disabled(!viewmodel.userDefaultStorage.hasOnboarded)
+            disclosureRow("Settings", value: "") {
+                page = .settings
+            }
+            Button {
+                openURL(URL(string: "https://buymeacoffee.com/aviwadhwalyricfever")!)
+            } label: {
+                HStack {
+                    Text("Buy Me A Beer (Thank You)!")
+                    Spacer()
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.vertical, 4)
+                .contentShape(.rect)
+            }
+            .buttonStyle(.plain)
+        }
+        .frame(width: 300)
+    }
+
+    var appleMusicAuthorizationStatus: String {
+        if !viewmodel.appleMusicPlayer.isRunning {
+            return "Apple Music isn't running"
+        } else if !viewmodel.appleMusicPlayer.isAuthorized {
+            return "Waiting for permission"
+        } else {
+            return "Apple Music is connected"
+        }
+    }
+
+    @ViewBuilder
+    var settingsPage: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            pageHeader("Settings", back: .moreOptions)
+            Divider()
+            Text(appleMusicAuthorizationStatus)
+                .id(appleMusicAuthorizationRefresh)
+            if appleMusicAuthorizationStatus != "Apple Music is connected" {
+                Button("Grant Apple Music Access") {
+                    _ = viewmodel.appleMusicPlayer.isAuthorized
+                    appleMusicAuthorizationRefresh.toggle()
+                }
+            }
+            Button {
+                openURL(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation")!)
+            } label: {
+                HStack {
+                    Text("Open Automation Settings")
+                    Spacer()
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.vertical, 4)
+                .contentShape(.rect)
+            }
+            .buttonStyle(.plain)
         }
         .frame(width: 300)
     }
@@ -487,6 +515,10 @@ struct MenubarWindowView: View {
             switch page {
                 case .main:
                     mainPage
+                case .moreOptions:
+                    moreOptionsPage
+                case .settings:
+                    settingsPage
                 case .translationSettings:
                     translationSettingsPage
                 case .languageChoice(let choice):
