@@ -44,25 +44,9 @@ struct MenubarWindowView: View {
         }
     }
 
-    enum NavigationDirection {
-        case forward
-        case backward
-    }
-
     @State var page: Page = .main
-    @State private var navigationDirection: NavigationDirection = .forward
 
-    private var pageTransition: AnyTransition {
-        switch navigationDirection {
-            case .forward:
-                .asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .leading))
-            case .backward:
-                .asymmetric(insertion: .move(edge: .leading), removal: .move(edge: .trailing))
-        }
-    }
-
-    private func navigate(to destination: Page, direction: NavigationDirection = .forward) {
-        navigationDirection = direction
+    private func navigate(to destination: Page) {
         page = destination
     }
 
@@ -338,7 +322,7 @@ struct MenubarWindowView: View {
     func pageHeader(_ title: String, back: Page) -> some View {
         HStack(spacing: 6) {
             Button {
-                navigate(to: back, direction: .backward)
+                navigate(to: back)
             } label: {
                 Image(systemName: "chevron.left")
                     .bold()
@@ -519,22 +503,24 @@ struct MenubarWindowView: View {
             switch page {
                 case .main:
                     mainPage
-                        .transition(pageTransition)
                 case .moreOptions:
                     moreOptionsPage
-                        .transition(pageTransition)
                 case .settings:
                     settingsPage
-                        .transition(pageTransition)
                 case .translationSettings:
                     translationSettingsPage
-                        .transition(pageTransition)
                 case .languageChoice(let choice):
                     languageChoicePage(choice)
-                        .transition(pageTransition)
             }
         }
-        .animation(.smooth(duration: 0.3), value: page)
+        // Each page keeps its natural height through the change. Without this the two pages
+        // are laid out together while the container is between sizes, and SwiftUI answers by
+        // squeezing them -- rows collapse into each other mid-flight. Sliding them sideways
+        // made it worse, since both were then on screen for the whole animation; a crossfade
+        // has only one page at full opacity at a time and cannot fold anything.
+        .fixedSize(horizontal: false, vertical: true)
+        .transition(.opacity)
+        .animation(.smooth(duration: 0.22), value: page)
         .foregroundStyle(.white)
         .padding(14)
         .background(
