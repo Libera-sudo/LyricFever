@@ -156,6 +156,20 @@ struct MenubarWindowView: View {
             return .clickable
         }
     }
+
+    var translationStatus: (text: String, showsHelp: Bool) {
+        if viewmodel.lyricsIsEmptyPostLoad || viewmodel.isFetching {
+            return (String(localized: "Nothing to Translate 🎵"), false)
+        } else if viewmodel.isFetchingTranslation {
+            return (String(localized: "Translating Lyrics ⏳"), false)
+        } else if viewmodel.translationAlreadyInTargetLanguage {
+            return (String(localized: "Lyrics Already in \(viewmodel.userLocaleLanguageString) 😊"), false)
+        } else if !viewmodel.translatedLyric.isEmpty {
+            return (String(localized: "Translated Lyrics 😃"), false)
+        } else {
+            return (String(localized: "No Translation ☹️"), true)
+        }
+    }
     
     var searchState: ButtonState {
         guard viewmodel.userDefaultStorage.hasOnboarded else {
@@ -415,16 +429,17 @@ struct MenubarWindowView: View {
     @ViewBuilder
     var translationSettingsPage: some View {
         @Bindable var viewmodel = viewmodel
+        let status = translationStatus
         VStack(alignment: .leading, spacing: 8) {
             pageHeader("Translation", back: .main)
             Divider()
             Toggle("Translate to \(viewmodel.userLocaleLanguageString)", isOn: $viewmodel.userDefaultStorage.translate)
                 .disabled(!viewmodel.userDefaultStorage.hasOnboarded)
             if viewmodel.userDefaultStorage.translate {
-                Text(!viewmodel.translatedLyric.isEmpty ? "Translated Lyrics 😃" : "No Translation ☹️")
+                Text(status.text)
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                if viewmodel.translatedLyric.isEmpty {
+                if status.showsHelp {
                     Button("Translation Help") {
                         openURL(URL(string: "https://aviwadhwa.com/TranslationHelp")!)
                     }

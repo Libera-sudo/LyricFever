@@ -137,6 +137,7 @@ import MediaRemoteAdapter
     var showLyrics = true
 
     var isFetchingTranslation = false
+    var translationAlreadyInTargetLanguage = false
     var translationExists: Bool { !translatedLyric.isEmpty}
     // Tracks the in-flight local translation so a song change cancels the previous one
     // instead of letting a stale result overwrite the new song's lyrics.
@@ -556,6 +557,7 @@ import MediaRemoteAdapter
         currentlyPlayingLyricsIndex = nil
         currentlyPlayingLyrics = []
         translatedLyric = []
+        translationAlreadyInTargetLanguage = false
         romanizedLyrics = []
         chineseConversionLyrics = []
         currentTrackIsInstrumental = false
@@ -857,12 +859,14 @@ import MediaRemoteAdapter
         localTranslationTask?.cancel()
         guard userDefaultStorage.translate else {
             translatedLyric = []
+            translationAlreadyInTargetLanguage = false
             isFetchingTranslation = false
             return
         }
         let lines = currentlyPlayingLyrics
         guard !lines.isEmpty else {
             translatedLyric = []
+            translationAlreadyInTargetLanguage = false
             isFetchingTranslation = false
             return
         }
@@ -874,11 +878,13 @@ import MediaRemoteAdapter
            let targetCode = userLocaleLanguage.languageCode?.identifier,
            sourceCode == targetCode {
             translatedLyric = []
+            translationAlreadyInTargetLanguage = true
             isFetchingTranslation = false
             print("Translation: Lyrics are already in \(userLocaleLanguage.languageCode?.identifier ?? userLocaleLanguage.minimalIdentifier); skipping translation")
             return
         }
         let requestedSong = currentlyPlaying
+        translationAlreadyInTargetLanguage = false
         isFetchingTranslation = true
         localTranslationTask = Task { [weak self] in
             guard let self else { return }
