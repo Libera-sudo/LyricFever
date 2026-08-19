@@ -46,12 +46,32 @@ class RomanizerService {
         //hachimitsu ha kuma no dai kōbutsu desu 。
         return romanized
     }
-    static func generateRomanizedLyric(_ lyric: LyricLine) -> String? {
-        print("Generating Romanized String for lyric \(lyric.words)")
-        if let language = NLLanguageRecognizer.dominantLanguage(for: lyric.words), language == .japanese {
-            return generateJapaneseRomanizedString(lyric.words)
-        } else {
-            return lyric.words.applyingTransform(.toLatin, reverse: false)
+    // The language decision belongs to the song, not the line. A lyric line is often
+    // three or four characters, and NLLanguageRecognizer reads a kanji-only line as
+    // Chinese often enough that the non-Japanese branch below then returns Mandarin
+    // pinyin -- leaving one Japanese song half romaji and half pinyin.
+    private static func songIsJapanese(_ lyrics: [String]) -> Bool {
+        let wholeSong = lyrics.joined(separator: "\n")
+        // Kana is exclusive to Japanese among the scripts that reach this app, so a
+        // single kana anywhere in the song settles it. The recognizer is only the
+        // fallback for the rare all-kanji lyric, and it reads the song, not a line.
+        let containsKana = wholeSong.unicodeScalars.contains { scalar in
+            (0x3040...0x309F).contains(scalar.value) || (0x30A0...0x30FF).contains(scalar.value)
+        }
+        return containsKana || NLLanguageRecognizer.dominantLanguage(for: wholeSong) == .japanese
+    }
+
+    static func generateRomanizedLyrics(_ lyrics: [String]) -> [String] {
+        let isJapanese = songIsJapanese(lyrics)
+        print("Romanizing \(lyrics.count) lines as \(isJapanese ? "Japanese" : "non-Japanese")")
+        // A line that fails to transform falls back to itself: romanizedLyrics is read
+        // in lockstep with the lyric array, so dropping one element would shift every
+        // line after it onto the wrong timestamp.
+        return lyrics.map { line in
+            let romanized = isJapanese
+                ? generateJapaneseRomanizedString(line)
+                : line.applyingTransform(.toLatin, reverse: false)
+            return romanized ?? line
         }
     }
     

@@ -460,15 +460,11 @@ import MediaRemoteAdapter
             // Generate romanized lyrics from chinese conversion
             if !chineseConversionLyrics.isEmpty {
                 print("Romanized Lyrics generated from romanize value change for song \(String(describing: currentlyPlaying)) with chinese conversion")
-                romanizedLyrics = chineseConversionLyrics.compactMap({
-                    RomanizerService.generateRomanizedLyric(LyricLine(startTime: 0, words: $0))
-                })
+                romanizedLyrics = RomanizerService.generateRomanizedLyrics(chineseConversionLyrics)
             // Generate romanized lyrics from original lyrics
             } else {
                 print("Romanized Lyrics generated from romanize value change for song \(String(describing: currentlyPlaying))")
-                romanizedLyrics = currentlyPlayingLyrics.compactMap({
-                    RomanizerService.generateRomanizedLyric($0)
-                })
+                romanizedLyrics = RomanizerService.generateRomanizedLyrics(currentlyPlayingLyrics.map(\.words))
             }
             
 //            romanizeMetadata()
