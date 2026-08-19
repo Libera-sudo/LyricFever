@@ -84,7 +84,9 @@ final class MusixmatchLyricProvider: LyricProvider {
             albumName: matchedAlbumName,
             artistName: matchedArtistName,
             lyrics: parsed,
-            durationMS: trackLength * 1_000
+            // Musixmatch answers 0 for tracks whose length it does not know. Zero is not a
+            // duration, and leaving it in printed "0:00" beside a four-minute song.
+            durationMS: trackLength > 0 ? trackLength * 1_000 : nil
         )]
     }
 
