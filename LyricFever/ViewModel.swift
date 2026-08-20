@@ -983,22 +983,26 @@ import MediaRemoteAdapter
             recognizedLineCount += 1
         }
 
-        // The only caller uses this to decide whether translating can be skipped, and getting
-        // that wrong is silent: a song that is merely mostly English keeps its other half
-        // untranslated forever, with the panel cheerfully reporting the lyrics are already in
-        // the target language. So the bar is dominance, not a majority.
+        // The only caller uses this to decide whether translating can be skipped, and both ways
+        // of being wrong are silent: skip a mixed-language song and half of it stays
+        // untranslated forever, or translate a song already in the target language and every
+        // line comes back needlessly rewritten.
         //
-        // Measured per-line over real songs: English-only lyrics score their own language at
-        // 100%, 93%, 90% and 84% -- the 84% is Bohemian Rhapsody, whose Arabic and Italian
-        // asides the recogniser genuinely picks out -- while Korean/English songs score 58%
-        // and 46%. 80% sits in the gap, and errs toward translating, which is the cheaper
-        // mistake: a redundant English-to-English pass costs a little work, where a wrong
-        // skip costs the feature.
+        // What separates the two is not how large the winner is -- it is how large the
+        // *runner-up* is. Per-line recognition misfires constantly on short lines, but the
+        // misfires scatter across languages, while a genuine second language concentrates.
+        // Measured over real songs, the runner-up in single-language lyrics came out at 0%,
+        // 6.0%, 6.7%, 10.3%, 10.3% and 10.9%; in Korean/English songs it was 42.3% and 40.5%.
+        // That is open ground to draw a line through, unlike the winner's own share, where a
+        // wholly English song scored 76.4% -- credit lines such as "Lyrics by:" drag it down --
+        // against a genuinely mixed song's 57.7%, too close together to separate.
         guard recognizedLineCount >= 8,
               let majority = languageCounts.max(by: { $0.value < $1.value }),
-              Double(majority.value) >= 0.8 * Double(recognizedLineCount) else {
+              Double(majority.value) >= 0.5 * Double(recognizedLineCount) else {
             return nil
         }
+        let runnerUp = languageCounts.filter { $0.key != majority.key }.values.max() ?? 0
+        guard Double(runnerUp) < 0.20 * Double(recognizedLineCount) else { return nil }
         return Locale.Language(identifier: majority.key.rawValue)
     }
 
