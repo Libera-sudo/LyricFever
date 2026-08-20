@@ -35,12 +35,23 @@ enum MenubarSpace {
         // onto whichever display sits furthest right and measures it against this screen's
         // notch: with an external at x=2952 that produced 2283pt of "available" space, which
         // silently outranks every slider setting and switches the whole limit off.
+        // Geometry, not just class name. The item's window is exactly the menu bar: menu-bar
+        // height, and its top edge flush with the top of the screen. The panel that drops out
+        // of a MenuBarExtra hangs below the menu bar and is far taller, so anything that does
+        // not sit in the bar itself is excluded here -- otherwise opening the panel changes
+        // what gets measured, and the width limit quietly stops applying while it is open.
+        let menuBarHeight = screen.frame.maxY - screen.visibleFrame.maxY
         let statusWindows = NSApp.windows.filter {
-            String(describing: type(of: $0)) == "NSStatusBarWindow"
-                && screen.frame.contains(CGPoint(x: $0.frame.midX, y: $0.frame.midY))
-                && $0.frame.maxY > screen.frame.midY
+            let frame = $0.frame
+            return String(describing: type(of: $0)) == "NSStatusBarWindow"
+                && screen.frame.contains(CGPoint(x: frame.midX, y: frame.midY))
+                && abs(frame.maxY - screen.frame.maxY) <= 2
+                && frame.height <= max(menuBarHeight, 24) + 8
         }
-        guard let ourFrame = statusWindows.map(\.frame).max(by: { $0.maxX < $1.maxX }) else { return nil }
+        guard let ourFrame = statusWindows.map(\.frame).max(by: { $0.maxX < $1.maxX }) else {
+            print("MenubarSpace: no status window on the notched screen -> nil")
+            return nil
+        }
         let padding = max(ourFrame.width - currentDrawnWidth, 0)
         let available = ourFrame.maxX - notchRightEdge - padding
         guard available > 0 else {
