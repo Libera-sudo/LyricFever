@@ -9,6 +9,14 @@ import SwiftUI
 import LaunchAtLogin
 import Translation
 
+/// Carries the main page's measured height up to the container that pins the other pages to it.
+private struct MainPageHeightKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
+    }
+}
+
 struct MenubarWindowView: View {
     @Environment(\.openURL) var openURL
     @Environment(\.openWindow) var openWindow
@@ -35,6 +43,12 @@ struct MenubarWindowView: View {
     }
 
     @State var page: Page = .main
+
+    /// Every page is sized to the main one. Measured rather than written down: the main page's
+    /// own height moves with its content, and a number typed in here would drift away from it
+    /// silently. The seed only holds until the panel first draws, which it always does on the
+    /// main page.
+    @State private var mainPageHeight: CGFloat = 260
 
     private func navigate(to destination: Page) {
         page = destination
@@ -596,12 +610,21 @@ struct MenubarWindowView: View {
         VStack(alignment: .leading, spacing: 8) {
             pageHeader(title, back: .translationSettings)
             Divider()
-            ForEach(availableVariants, id: \.maximalIdentifier) { language in
-                choiceRow(conversionVariantLabel(language),
-                          selected: currentTarget?.maximalIdentifier == language.maximalIdentifier) {
-                    viewmodel.translationTargetLanguage = language
+            // English alone has nine regional variants -- more than fits the height the main
+            // page sets -- so this list scrolls like the language pages rather than running
+            // off the bottom.
+            ScrollView {
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(availableVariants, id: \.maximalIdentifier) { language in
+                        choiceRow(conversionVariantLabel(language),
+                                  selected: currentTarget?.maximalIdentifier == language.maximalIdentifier) {
+                            viewmodel.translationTargetLanguage = language
+                        }
+                    }
                 }
             }
+            .scrollContentBackground(.hidden)
+            .frame(maxHeight: .infinity)
         }
         .frame(width: 300)
     }
@@ -632,7 +655,7 @@ struct MenubarWindowView: View {
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
-            .frame(height: 280)
+            .frame(maxHeight: .infinity)
         }
         .frame(width: 300)
     }
@@ -658,7 +681,7 @@ struct MenubarWindowView: View {
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
-            .frame(height: 280)
+            .frame(maxHeight: .infinity)
         }
         .frame(width: 300)
     }
@@ -668,6 +691,12 @@ struct MenubarWindowView: View {
             switch page {
                 case .main:
                     mainPage
+                        .background(
+                            GeometryReader { proxy in
+                                Color.clear.preference(key: MainPageHeightKey.self,
+                                                       value: proxy.size.height)
+                            }
+                        )
                 case .moreOptions:
                     moreOptionsPage
                 case .settings:
@@ -681,6 +710,15 @@ struct MenubarWindowView: View {
                 case .conversion:
                     conversionPage
             }
+        }
+        // The main page sets the height and every other page takes it, so the panel no longer
+        // resizes as pages change. Top-aligned, or a short page would float its rows in the
+        // middle of the box.
+        .frame(height: page == .main ? nil : mainPageHeight, alignment: .top)
+        .onPreferenceChange(MainPageHeightKey.self) { height in
+            // Sub-pages publish nothing, so the key falls back to 0 while one is showing; the
+            // last real measurement is what should stand.
+            if height > 0 { mainPageHeight = height }
         }
         // Each page keeps its natural height through the change. Without this the two pages
         // are laid out together while the container is between sizes, and SwiftUI answers by
