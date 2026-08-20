@@ -302,18 +302,6 @@ struct MenubarWindowView: View {
                     .toggleStyle(.switch)
                     .disabled(!viewmodel.userDefaultStorage.hasOnboarded)
             }
-            Button {
-                openURL(URL(string: "https://buymeacoffee.com/aviwadhwalyricfever")!)
-            } label: {
-                HStack {
-                    Text("Buy the Author a Beer")
-                    Spacer()
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.vertical, 4)
-                .contentShape(.rect)
-            }
-            .buttonStyle(.plain)
             // Last: it leaves this page rather than changing something on it.
             disclosureRow("Settings", value: "") {
                 navigate(to: .settings)
@@ -357,8 +345,31 @@ struct MenubarWindowView: View {
                 .contentShape(.rect)
             }
             .buttonStyle(.plain)
+            Button {
+                openURL(URL(string: "https://buymeacoffee.com/aviwadhwalyricfever")!)
+            } label: {
+                HStack {
+                    Text("Buy the Author a Beer")
+                    Spacer()
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.vertical, 4)
+                .contentShape(.rect)
+            }
+            .buttonStyle(.plain)
+            Divider()
+            Text(appVersion)
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
         .frame(width: 300)
+    }
+
+    /// Read from the bundle, not written out here: the onboarding window still carries a
+    /// hand-typed "Version 3.3" that nothing updates when the project's version moves.
+    var appVersion: String {
+        let short = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
+        return "Version \(short ?? "unknown")"
     }
 
     /// `status` rides the trailing edge of the header row rather than taking a line of its
