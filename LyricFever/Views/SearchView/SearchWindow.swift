@@ -104,10 +104,10 @@ struct SearchWindow: View {
         if let selectedLyric, let selectedLyricLyric = searchResults.first(where: { $0.id == selectedLyric}) {
             Group {
                 if selectedLyricLyric.lyrics.isEmpty {
-                    // A result can carry no lines at all: LRCLIB marks instrumental tracks and
-                    // returns them anyway, so an instrumental piece answers with three hits and
-                    // not a word between them. Collapsing to nothing reads as a preview that
-                    // stopped working, so say which of the two it is.
+                    // Empty results are filtered out of the list before it is shown, so this
+                    // is a backstop rather than the usual case -- but a preview that silently
+                    // collapses reads as one that stopped working, and that is worth a
+                    // sentence whenever an empty result does reach here.
                     Text("This result has no lyrics to preview.")
                         .font(.callout)
                         .foregroundStyle(.secondary)
@@ -230,7 +230,15 @@ struct SearchWindow: View {
         }
 
         guard !Task.isCancelled else { return }
-        let ranked = rankAndDeduplicate(collectedResults, targetDurationMS: viewmodel.duration)
+        // A result with no lines is nothing to choose between: LRCLIB flags instrumental
+        // tracks and returns them regardless, so a solo piano piece answers with three hits
+        // and not a word among them, and applying one would only wipe the lyrics. Filtering
+        // by emptiness rather than by anyone's instrumental flag also catches a result whose
+        // lyrics simply failed to parse, and needs no new field carried through four
+        // providers. When every hit is like that the list is empty, which is the honest
+        // answer -- "No lyrics found" -- instead of three rows that do nothing.
+        let usableResults = collectedResults.filter { !$0.lyrics.isEmpty }
+        let ranked = rankAndDeduplicate(usableResults, targetDurationMS: viewmodel.duration)
         guard !Task.isCancelled else { return }
 
         agreementScores = ranked.scores
