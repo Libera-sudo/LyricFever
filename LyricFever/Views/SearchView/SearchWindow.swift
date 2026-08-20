@@ -102,12 +102,26 @@ struct SearchWindow: View {
     @ViewBuilder
     var selectedLyricView: some View {
         if let selectedLyric, let selectedLyricLyric = searchResults.first(where: { $0.id == selectedLyric}) {
-            LyricPreviewNSTableView(
-                lyrics: selectedLyricLyric.lyrics
-            )
+            Group {
+                if selectedLyricLyric.lyrics.isEmpty {
+                    // A result can carry no lines at all: LRCLIB marks instrumental tracks and
+                    // returns them anyway, so an instrumental piece answers with three hits and
+                    // not a word between them. Collapsing to nothing reads as a preview that
+                    // stopped working, so say which of the two it is.
+                    Text("This result has no lyrics to preview.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .frame(height: 60)
+                } else {
+                    LyricPreviewNSTableView(
+                        lyrics: selectedLyricLyric.lyrics
+                    )
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 200)
+                }
+            }
             .transition(.move(edge: .bottom))
-            .frame(maxWidth: .infinity)
-            .frame(height: 200)
         }
     }
 
