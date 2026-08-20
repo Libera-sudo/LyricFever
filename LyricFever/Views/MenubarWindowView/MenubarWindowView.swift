@@ -31,7 +31,7 @@ struct MenubarWindowView: View {
         case translationSettings
         case translationTargetLanguage
         case translationSourceLanguage
-        case chineseConversion
+        case conversion
     }
 
     @State var page: Page = .main
@@ -160,11 +160,6 @@ struct MenubarWindowView: View {
         }
     }
 
-    var chineseConversionLabel: String {
-        ChineseConversion(rawValue: viewmodel.userDefaultStorage.chinesePreference)?.description
-            ?? ChineseConversion.none.description
-    }
-    
     var searchState: ButtonState {
         guard viewmodel.userDefaultStorage.hasOnboarded else {
             return .disabled
@@ -449,6 +444,73 @@ struct MenubarWindowView: View {
         Locale.current.localizedString(forIdentifier: language.minimalIdentifier) ?? language.maximalIdentifier
     }
 
+    func languageCode(for language: Locale.Language) -> String {
+        language.languageCode?.identifier ?? language.minimalIdentifier
+    }
+
+    func languageName(_ language: Locale.Language) -> String {
+        let code = languageCode(for: language)
+        return Locale.current.localizedString(forLanguageCode: code) ?? code
+    }
+
+    /// One row per language rather than per variant: the framework reports 47 entries for 25
+    /// languages, so the unfiltered list read "English (Australia)" through "English (South
+    /// Africa)" nine times before reaching F.
+    var targetLanguages: [Locale.Language] {
+        Dictionary(grouping: supportedLanguages, by: languageCode(for:))
+            .values
+            .compactMap { variants in
+                variants.sorted { $0.maximalIdentifier < $1.maximalIdentifier }.first
+            }
+            .sorted {
+                let result = languageName($0).localizedStandardCompare(languageName($1))
+                return result == .orderedSame
+                    ? languageCode(for: $0) < languageCode(for: $1)
+                    : result == .orderedAscending
+            }
+    }
+
+    func variants(for language: Locale.Language) -> [Locale.Language] {
+        let code = languageCode(for: language)
+        return supportedLanguages
+            .filter { languageCode(for: $0) == code }
+            .sorted { $0.maximalIdentifier < $1.maximalIdentifier }
+    }
+
+    func selectTargetLanguage(_ language: Locale.Language) {
+        if let current = viewmodel.translationTargetLanguage,
+           languageCode(for: current) == languageCode(for: language) {
+            return
+        }
+
+        let availableVariants = variants(for: language)
+        let systemRegion = viewmodel.systemLocale.region?.identifier
+        let matchingRegion = availableVariants.first { $0.region?.identifier == systemRegion }
+        // With no system-region match, maximalIdentifier order is the deterministic fallback.
+        viewmodel.translationTargetLanguage = matchingRegion ?? availableVariants.first
+    }
+
+    func conversionVariantLabel(_ language: Locale.Language) -> String {
+        if languageCode(for: language) == "zh" {
+            switch (language.script?.identifier, language.region?.identifier) {
+                case ("Hans", _):
+                    return "Simplified"
+                case ("Hant", "TW"):
+                    return "Traditional (Taiwan)"
+                case ("Hant", "HK"):
+                    return "Traditional (Hong Kong)"
+                case ("Hant", _):
+                    return "Traditional"
+                default:
+                    break
+            }
+        }
+        if let region = language.region?.identifier {
+            return Locale.current.localizedString(forRegionCode: region) ?? region
+        }
+        return language.maximalIdentifier
+    }
+
     var sourceLanguageLabel: String {
         guard let source = viewmodel.translationSourceLanguage else { return "Auto" }
         return languageLabel(source)
@@ -507,15 +569,18 @@ struct MenubarWindowView: View {
             disclosureRow("Source (this song)", value: sourceLanguageLabel) {
                 navigate(to: .translationSourceLanguage)
             }
-            // Both transforms are hidden on a song they cannot act on: romanizing Latin lyrics
-            // and converting a script with no Han in it are no-ops, and a control that does
-            // nothing is worse than no control.
+            // Romanizing Latin lyrics is a no-op, so hide that transform when it cannot act.
             if viewmodel.lyricsCanBeRomanized {
                 Toggle("Romanize", isOn: $viewmodel.userDefaultStorage.romanize)
             }
-            if viewmodel.lyricsCanBeChineseConverted {
-                disclosureRow("Chinese Conversion", value: chineseConversionLabel) {
-                    navigate(to: .chineseConversion)
+            // Conversion is the target language's regional variant, so it only exists when a
+            // language is actually chosen and that language has more than one. Nine of the 25
+            // supported languages do; the rest never show this row.
+            if let target = viewmodel.translationTargetLanguage,
+               variants(for: target).count > 1 {
+                disclosureRow("\(languageName(target)) Conversion",
+                              value: conversionVariantLabel(target)) {
+                    navigate(to: .conversion)
                 }
             }
         }
@@ -523,15 +588,18 @@ struct MenubarWindowView: View {
     }
 
     @ViewBuilder
-    var chineseConversionPage: some View {
-        @Bindable var viewmodel = viewmodel
+    var conversionPage: some View {
+        let currentTarget = viewmodel.translationTargetLanguage
+        let availableVariants = currentTarget.map(variants(for:)) ?? []
+        let title = currentTarget.map { "\(languageName($0)) Conversion" } ?? "Conversion"
+
         VStack(alignment: .leading, spacing: 8) {
-            pageHeader("Chinese Conversion", back: .translationSettings)
+            pageHeader(title, back: .translationSettings)
             Divider()
-            ForEach(ChineseConversion.allCases) { conversion in
-                choiceRow(conversion.description,
-                          selected: viewmodel.userDefaultStorage.chinesePreference == conversion.rawValue) {
-                    viewmodel.userDefaultStorage.chinesePreference = conversion.rawValue
+            ForEach(availableVariants, id: \.maximalIdentifier) { language in
+                choiceRow(conversionVariantLabel(language),
+                          selected: currentTarget?.maximalIdentifier == language.maximalIdentifier) {
+                    viewmodel.translationTargetLanguage = language
                 }
             }
         }
@@ -555,10 +623,10 @@ struct MenubarWindowView: View {
                 choiceRow("System (\(viewmodel.systemLocaleString))", selected: currentTarget == nil) {
                     viewmodel.translationTargetLanguage = nil
                 }
-                ForEach(supportedLanguages, id: \.maximalIdentifier) { language in
-                    choiceRow(languageLabel(language),
-                              selected: currentTarget?.maximalIdentifier == language.maximalIdentifier) {
-                        viewmodel.translationTargetLanguage = language
+                ForEach(targetLanguages, id: \.maximalIdentifier) { language in
+                    choiceRow(languageName(language),
+                              selected: currentTarget.map { languageCode(for: $0) } == languageCode(for: language)) {
+                        selectTargetLanguage(language)
                     }
                 }
             }
@@ -610,8 +678,8 @@ struct MenubarWindowView: View {
                     translationTargetLanguagePage
                 case .translationSourceLanguage:
                     translationSourceLanguagePage
-                case .chineseConversion:
-                    chineseConversionPage
+                case .conversion:
+                    conversionPage
             }
         }
         // Each page keeps its natural height through the change. Without this the two pages

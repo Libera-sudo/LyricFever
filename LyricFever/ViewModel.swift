@@ -469,19 +469,6 @@ import MediaRemoteAdapter
         return !sample.isEmpty && sample.applyingTransform(.toLatin, reverse: false) != sample
     }
 
-    /// Whether Chinese conversion applies: Han characters are the requirement, kana the veto.
-    /// Japanese kanji put through OpenCC come out corrupted rather than converted, and a
-    /// Japanese lyric sheet with no kana anywhere in it does not occur in practice.
-    var lyricsCanBeChineseConverted: Bool {
-        var sawHan = false
-        for scalar in lyricsScriptSample.unicodeScalars {
-            let value = scalar.value
-            if (0x3040...0x309F).contains(value) || (0x30A0...0x30FF).contains(value) { return false }
-            if (0x4E00...0x9FFF).contains(value) || (0x3400...0x4DBF).contains(value) { sawHan = true }
-        }
-        return sawHan
-    }
-
     func romanizeDidChange() {
         if userDefaultStorage.romanize {
             // Generate romanized lyrics from chinese conversion
@@ -523,30 +510,55 @@ import MediaRemoteAdapter
         return nil
     }
     
-    func chinesePreferenceDidChange() {
-        if let chinesePreference = ChineseConversion(rawValue: userDefaultStorage.chinesePreference), chinesePreference != .none {
-            print("Generating Chinese conversion for song \(String(describing: currentlyPlaying)) to chinese style \(chinesePreference.description)")
-            //TODO: check if Task was cancelled
-            let chineseConversionLyrics: [String] = currentlyPlayingLyrics.compactMap({
-                switch chinesePreference {
-                    case .none:
-                        return nil
-                    case .simplified:
-                        return RomanizerService.generateMainlandTransliteration($0)
-                    case .traditionalNeutral:
-                        return RomanizerService.generateTraditionalNeutralTransliteration($0)
-                    case .traditionalTaiwan:
-                        return RomanizerService.generateTaiwanTransliteration($0)
-                    case .traditionalHK:
-                        return RomanizerService.generateHongKongTransliteration($0)
+    /// Which OpenCC conversion the original lyrics get, read off the translation target rather
+    /// than a setting of its own. The two were separate controls that looked alike and meant
+    /// different things -- one restyled the lyrics, the other picked a translation dialect --
+    /// so they are now one answer to one question: which flavour of the language do I want to
+    /// read. The cost is that lyrics only convert while Chinese is the target; asking for
+    /// Traditional lyrics while translating into English is no longer expressible.
+    private var targetChineseConversion: ChineseConversion {
+        let target = userLocaleLanguage
+        guard target.languageCode?.identifier == "zh" else { return .none }
+        switch target.script?.identifier {
+            case "Hans":
+                return .simplified
+            case "Hant":
+                switch target.region?.identifier {
+                    case "TW": return .traditionalTaiwan
+                    case "HK": return .traditionalHK
+                    default: return .traditionalNeutral
                 }
-            })
-            //TODO: check if Task was cancelled
-            if !Task.isCancelled {
-                self.chineseConversionLyrics = chineseConversionLyrics
-            }
-        } else {
+            default:
+                return .none
+        }
+    }
+
+    func translationTargetLanguageDidChange() {
+        let conversion = targetChineseConversion
+        guard conversion != .none else {
             chineseConversionLyrics = []
+            return
+        }
+
+        print("Generating Chinese conversion for song \(String(describing: currentlyPlaying)) to chinese style \(conversion.description)")
+        //TODO: check if Task was cancelled
+        let convertedLyrics: [String] = currentlyPlayingLyrics.compactMap {
+            switch conversion {
+                case .none:
+                    return nil
+                case .simplified:
+                    return RomanizerService.generateMainlandTransliteration($0)
+                case .traditionalNeutral:
+                    return RomanizerService.generateTraditionalNeutralTransliteration($0)
+                case .traditionalTaiwan:
+                    return RomanizerService.generateTaiwanTransliteration($0)
+                case .traditionalHK:
+                    return RomanizerService.generateHongKongTransliteration($0)
+            }
+        }
+        //TODO: check if Task was cancelled
+        if !Task.isCancelled {
+            chineseConversionLyrics = convertedLyrics
         }
     }
     
@@ -1037,7 +1049,7 @@ import MediaRemoteAdapter
         fetchTranslationSourceLanguage()
         startTranslation()
 //        romanizeDidChange()
-        chinesePreferenceDidChange()
+        translationTargetLanguageDidChange()
         // we romanize afterwards, in-case the chinese conversion array was populated
         romanizeDidChange()
         lyricsIsEmptyPostLoad = currentlyPlayingLyrics.isEmpty

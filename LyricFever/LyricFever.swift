@@ -80,11 +80,10 @@ struct LyricFever: App {
                 // translation and overwrite its result.
                 viewmodel.startTranslation()
             }
-            .onChange(of: viewmodel.userLocaleLanguage) {
+            .onChange(of: viewmodel.translationTargetLanguage) {
+                viewmodel.translationTargetLanguageDidChange()
+                viewmodel.romanizeDidChange()
                 viewmodel.startTranslation()
-            }
-            .onChange(of: viewmodel.userDefaultStorage.chinesePreference) {
-                viewmodel.chinesePreferenceDidChange()
             }
             .onChange(of: viewmodel.userDefaultStorage.romanize) {
                 viewmodel.romanizeDidChange()
