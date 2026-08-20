@@ -25,14 +25,32 @@ enum MenubarSpace {
     ///   lets the difference be measured instead of guessed. Getting that wrong pushes the item
     ///   under the notch and macOS collapses the whole menu bar behind a chevron.
     static func availableWidth(currentDrawnWidth: CGFloat) -> CGFloat? {
-        guard let screen = NSScreen.main,
+        // The notched screen, not NSScreen.main: main is wherever the keyboard focus is, which
+        // on a docked Mac is routinely an external display with no notch and no crowding. The
+        // notched menu bar is the one that runs out of room, so it is the one worth measuring.
+        guard let screen = NSScreen.screens.first(where: { $0.auxiliaryTopRightArea != nil }),
               let notchRightEdge = screen.auxiliaryTopRightArea?.minX else { return nil }
+        // One status window per screen, so the frames have to be filtered to that screen before
+        // any of them is compared. Picking the right-most across all screens instead reaches
+        // onto whichever display sits furthest right and measures it against this screen's
+        // notch: with an external at x=2952 that produced 2283pt of "available" space, which
+        // silently outranks every slider setting and switches the whole limit off.
         let statusWindows = NSApp.windows.filter {
-            String(describing: type(of: $0)) == "NSStatusBarWindow" && $0.frame.maxY > screen.frame.midY
+            String(describing: type(of: $0)) == "NSStatusBarWindow"
+                && screen.frame.contains(CGPoint(x: $0.frame.midX, y: $0.frame.midY))
+                && $0.frame.maxY > screen.frame.midY
         }
         guard let ourFrame = statusWindows.map(\.frame).max(by: { $0.maxX < $1.maxX }) else { return nil }
         let padding = max(ourFrame.width - currentDrawnWidth, 0)
         let available = ourFrame.maxX - notchRightEdge - padding
-        return available > 0 ? floor(available) : nil
+        guard available > 0 else {
+            // Nothing left of the notch to measure from means the item has already been pushed
+            // past it, i.e. it is too wide right now. Returning nil here would hand the caller
+            // its fallback -- the raw slider cap, the very width that overflowed -- and the
+            // state would never unwind. Shrinking instead does: the caller takes another 48pt
+            // of headroom off this, so one remeasurement pulls the item in by 80pt.
+            return max(currentDrawnWidth - 32, 0)
+        }
+        return floor(available)
     }
 }
