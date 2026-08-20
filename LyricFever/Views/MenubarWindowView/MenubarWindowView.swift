@@ -507,9 +507,16 @@ struct MenubarWindowView: View {
             disclosureRow("Source (this song)", value: sourceLanguageLabel) {
                 navigate(to: .translationSourceLanguage)
             }
-            Toggle("Romanize", isOn: $viewmodel.userDefaultStorage.romanize)
-            disclosureRow("Chinese Conversion", value: chineseConversionLabel) {
-                navigate(to: .chineseConversion)
+            // Both transforms are hidden on a song they cannot act on: romanizing Latin lyrics
+            // and converting a script with no Han in it are no-ops, and a control that does
+            // nothing is worse than no control.
+            if viewmodel.lyricsCanBeRomanized {
+                Toggle("Romanize", isOn: $viewmodel.userDefaultStorage.romanize)
+            }
+            if viewmodel.lyricsCanBeChineseConverted {
+                disclosureRow("Chinese Conversion", value: chineseConversionLabel) {
+                    navigate(to: .chineseConversion)
+                }
             }
         }
         .frame(width: 300)

@@ -455,6 +455,33 @@ import MediaRemoteAdapter
         }
     }
     
+    /// Enough of the song to tell its scripts apart, without walking a long lyric sheet every
+    /// time the panel redraws.
+    private var lyricsScriptSample: String {
+        currentlyPlayingLyrics.prefix(40).map(\.words).joined(separator: "\n")
+    }
+
+    /// Whether romanizing this song would change anything -- asked directly, by running the
+    /// transform, rather than by listing scripts. Latin lyrics come back untouched, accents and
+    /// all, so French and German answer no alongside English.
+    var lyricsCanBeRomanized: Bool {
+        let sample = lyricsScriptSample
+        return !sample.isEmpty && sample.applyingTransform(.toLatin, reverse: false) != sample
+    }
+
+    /// Whether Chinese conversion applies: Han characters are the requirement, kana the veto.
+    /// Japanese kanji put through OpenCC come out corrupted rather than converted, and a
+    /// Japanese lyric sheet with no kana anywhere in it does not occur in practice.
+    var lyricsCanBeChineseConverted: Bool {
+        var sawHan = false
+        for scalar in lyricsScriptSample.unicodeScalars {
+            let value = scalar.value
+            if (0x3040...0x309F).contains(value) || (0x30A0...0x30FF).contains(value) { return false }
+            if (0x4E00...0x9FFF).contains(value) || (0x3400...0x4DBF).contains(value) { sawHan = true }
+        }
+        return sawHan
+    }
+
     func romanizeDidChange() {
         if userDefaultStorage.romanize {
             // Generate romanized lyrics from chinese conversion
