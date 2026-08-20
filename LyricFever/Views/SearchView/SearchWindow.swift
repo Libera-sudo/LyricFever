@@ -345,6 +345,11 @@ struct SearchWindow: View {
                         .opacity(0.18)
                         .animation(.smooth, value: viewmodel.currentBackground)
                 }
+                // Full-bleed, title bar included. The window is non-opaque so the material can
+                // sample what is behind it, and a region of a non-opaque window with nothing
+                // drawn in it does not hit-test -- leaving the title bar strip unclickable and
+                // the window undraggable. Covering it with the material restores both.
+                .ignoresSafeArea()
             }
         .navigationTitle("Searching for \(viewmodel.currentlyPlayingName ?? "-") by \(viewmodel.currentlyPlayingArtist ?? "-")")
         .presentedWindowToolbarStyle(.unified)
