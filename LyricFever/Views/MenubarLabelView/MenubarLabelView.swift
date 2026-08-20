@@ -18,20 +18,18 @@ struct MenubarLabelView: View {
         if viewmodel.userDefaultStorage.hasOnboarded {
             // Try to work through lyric logic if onboarded
             if viewmodel.isPlaying, viewmodel.showLyrics, let currentlyPlayingLyricsIndex = viewmodel.currentlyPlayingLyricsIndex {
-                // Attempt to display translations
-                // Implicit assumption: translatedLyric.count == currentlyPlayingLyrics.count
-                if viewmodel.translationExists {
+                // Romanization is outermost because it transforms whichever line the rest of
+                // this chain settled on -- including a translation. Every array below is
+                // index-aligned with currentlyPlayingLyrics.
+                if !viewmodel.romanizedLyrics.isEmpty {
+                    return viewmodel.romanizedLyrics[currentlyPlayingLyricsIndex]
+                } else if viewmodel.translationExists {
                     // I don't localize, because I deliver the lyric verbatim
                     return viewmodel.translatedLyric[currentlyPlayingLyricsIndex]
+                } else if !viewmodel.chineseConversionLyrics.isEmpty {
+                    return viewmodel.chineseConversionLyrics[currentlyPlayingLyricsIndex]
                 } else {
-                    // Attempt to display Romanization
-                    if !viewmodel.romanizedLyrics.isEmpty {
-                        return viewmodel.romanizedLyrics[currentlyPlayingLyricsIndex]
-                    } else if !viewmodel.chineseConversionLyrics.isEmpty {
-                        return viewmodel.chineseConversionLyrics[currentlyPlayingLyricsIndex]
-                    } else {
-                        return viewmodel.currentlyPlayingLyrics[currentlyPlayingLyricsIndex].words
-                    }
+                    return viewmodel.currentlyPlayingLyrics[currentlyPlayingLyricsIndex].words
                 }
             // Backup: Display name and artist
             } else if viewmodel.userDefaultStorage.showSongDetailsInMenubar, let currentlyPlayingName = viewmodel.currentlyPlayingName, let currentlyPlayingArtist = viewmodel.currentlyPlayingArtist {

@@ -569,10 +569,6 @@ struct MenubarWindowView: View {
             disclosureRow("Source (this song)", value: sourceLanguageLabel) {
                 navigate(to: .translationSourceLanguage)
             }
-            // Romanizing Latin lyrics is a no-op, so hide that transform when it cannot act.
-            if viewmodel.lyricsCanBeRomanized {
-                Toggle("Romanize", isOn: $viewmodel.userDefaultStorage.romanize)
-            }
             // Conversion is the target language's regional variant, so it only exists when a
             // language is actually chosen and that language has more than one. Nine of the 25
             // supported languages do; the rest never show this row.
@@ -582,6 +578,10 @@ struct MenubarWindowView: View {
                               value: conversionVariantLabel(target)) {
                     navigate(to: .conversion)
                 }
+            }
+            // Romanizing Latin lyrics is a no-op, so hide that transform when it cannot act.
+            if viewmodel.lyricsCanBeRomanized {
+                Toggle("Romanize", isOn: $viewmodel.userDefaultStorage.romanize)
             }
         }
         .frame(width: 300)

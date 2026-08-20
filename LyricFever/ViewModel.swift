@@ -139,6 +139,21 @@ import MediaRemoteAdapter
     var isFetchingTranslation = false
     var translationAlreadyInTargetLanguage = false
     var translationExists: Bool { !translatedLyric.isEmpty}
+
+    /// The line the menu bar would draw if romanization were off: the translation when there is
+    /// one, then the script-converted lyrics, then the lyrics themselves. Romanization reads
+    /// this rather than always reading the original, so a translation into Japanese or Chinese
+    /// can be read in Latin letters too -- which is also why romanization sits at the outermost
+    /// step of the display chain in MenubarLabelView rather than a rung below translation.
+    var lyricsForDisplayWithoutRomanization: [String] {
+        if translationExists {
+            return translatedLyric
+        } else if !chineseConversionLyrics.isEmpty {
+            return chineseConversionLyrics
+        } else {
+            return currentlyPlayingLyrics.map(\.words)
+        }
+    }
     // Tracks the in-flight local translation so a song change cancels the previous one
     // instead of letting a stale result overwrite the new song's lyrics.
     private var localTranslationTask: Task<Void, Never>?
@@ -443,6 +458,7 @@ import MediaRemoteAdapter
                     translatedLyric = array.map {
                         $0.targetText
                     }
+                    romanizeDidChange()
                 }
             case .needsConfigUpdate(let language):
                 // TODO: why do i sleep?
@@ -458,7 +474,7 @@ import MediaRemoteAdapter
     /// Enough of the song to tell its scripts apart, without walking a long lyric sheet every
     /// time the panel redraws.
     private var lyricsScriptSample: String {
-        currentlyPlayingLyrics.prefix(40).map(\.words).joined(separator: "\n")
+        lyricsForDisplayWithoutRomanization.prefix(40).joined(separator: "\n")
     }
 
     /// Whether romanizing this song would change anything -- asked directly, by running the
@@ -471,15 +487,8 @@ import MediaRemoteAdapter
 
     func romanizeDidChange() {
         if userDefaultStorage.romanize {
-            // Generate romanized lyrics from chinese conversion
-            if !chineseConversionLyrics.isEmpty {
-                print("Romanized Lyrics generated from romanize value change for song \(String(describing: currentlyPlaying)) with chinese conversion")
-                romanizedLyrics = RomanizerService.generateRomanizedLyrics(chineseConversionLyrics)
-            // Generate romanized lyrics from original lyrics
-            } else {
-                print("Romanized Lyrics generated from romanize value change for song \(String(describing: currentlyPlaying))")
-                romanizedLyrics = RomanizerService.generateRomanizedLyrics(currentlyPlayingLyrics.map(\.words))
-            }
+            print("Romanized Lyrics generated for song \(String(describing: currentlyPlaying))")
+            romanizedLyrics = RomanizerService.generateRomanizedLyrics(lyricsForDisplayWithoutRomanization)
             
 //            romanizeMetadata()
         } else {
@@ -895,6 +904,14 @@ import MediaRemoteAdapter
     }
     
     #if os(macOS)
+    /// Drops the translation and re-derives the romanization from what is left, since the two
+    /// are no longer independent: romanized text is a transform of the line on display.
+    private func clearTranslation() {
+        guard translationExists else { return }
+        translatedLyric = []
+        romanizeDidChange()
+    }
+
     /// Translates the current lyrics, preferring the local Hy-MT2 model and falling back to
     /// Apple's translator whenever it is unavailable or returns an incomplete result.
     func startTranslation() {
@@ -903,14 +920,14 @@ import MediaRemoteAdapter
         // until the next song happens to translate successfully.
         localTranslationTask?.cancel()
         guard userDefaultStorage.translate else {
-            translatedLyric = []
+            clearTranslation()
             translationAlreadyInTargetLanguage = false
             isFetchingTranslation = false
             return
         }
         let lines = currentlyPlayingLyrics
         guard !lines.isEmpty else {
-            translatedLyric = []
+            clearTranslation()
             translationAlreadyInTargetLanguage = false
             isFetchingTranslation = false
             return
@@ -922,7 +939,7 @@ import MediaRemoteAdapter
         if let sourceCode = sourceLanguage?.languageCode?.identifier,
            let targetCode = userLocaleLanguage.languageCode?.identifier,
            sourceCode == targetCode {
-            translatedLyric = []
+            clearTranslation()
             translationAlreadyInTargetLanguage = true
             isFetchingTranslation = false
             print("Translation: Lyrics are already in \(userLocaleLanguage.languageCode?.identifier ?? userLocaleLanguage.minimalIdentifier); skipping translation")
@@ -940,6 +957,7 @@ import MediaRemoteAdapter
             guard currentlyPlaying == requestedSong else { return }
             if let local, local.count == lines.count {
                 translatedLyric = matchingChineseScript(local, for: userLocaleLanguage)
+                romanizeDidChange()
                 isFetchingTranslation = false
             } else if !reloadTranslationConfigIfTranslating() {
                 // Normally Apple's translator takes over here, driving itself through
