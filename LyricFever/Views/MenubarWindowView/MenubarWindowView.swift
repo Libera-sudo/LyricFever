@@ -225,7 +225,7 @@ struct MenubarWindowView: View {
     /// longest possible track is what makes single-character precision draggable at all.
     @ViewBuilder
     var truncationSlider: some View {
-        MenubarTruncationSlider(value: truncationBinding)
+        MenubarTruncationSlider(value: truncationBinding, ceiling: viewmodel.measuredMenubarWidth)
         .labelsHidden()
         .frame(maxWidth: .infinity)
         .tint(.secondary)

@@ -208,6 +208,15 @@ import MediaRemoteAdapter
     /// remeasured only when the screen arrangement changes -- see `MenubarSpace`.
     var menubarLyricWidth: CGFloat = 180
 
+    /// The latest ceiling, headroom already deducted, or nil when nothing could be measured.
+    /// Published so the width slider can hatch the part of its track there is no room for.
+    ///
+    /// One caveat for the reader: once the item has been pushed past the notch,
+    /// `MenubarSpace.availableWidth` answers with the current width minus 32 -- an instruction
+    /// to shrink rather than a measurement. As a hatch boundary it still tells the truth, that
+    /// the lyric is wider than the bar can hold, but it is not a reading of free space.
+    var measuredMenubarWidth: CGFloat?
+
     /// Coalesces a burst of moves into one pass. Cancelled and replaced rather than queued.
     @ObservationIgnored private var menubarMoveRemeasure: Task<Void, Never>?
 
@@ -234,6 +243,7 @@ import MediaRemoteAdapter
         // left unclaimed as headroom.
         let headroom: CGFloat = 48
         let measured = MenubarSpace.availableWidth(currentDrawnWidth: menubarLyricWidth).map { $0 - headroom }
+        measuredMenubarWidth = measured
         let width = min(cap, measured ?? cap)
         let clamped = max(width, 80)
         // Applying a new width moves the item, which posts another move, which lands back here:
