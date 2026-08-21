@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import StringMetric
 
 struct SearchWindow: View {
     @Environment(ViewModel.self) var viewmodel
@@ -238,7 +239,9 @@ struct SearchWindow: View {
         // providers. When every hit is like that the list is empty, which is the honest
         // answer -- "No lyrics found" -- instead of three rows that do nothing.
         let usableResults = collectedResults.filter { !$0.lyrics.isEmpty }
-        let ranked = rankAndDeduplicate(usableResults, targetDurationMS: viewmodel.duration)
+        let ranked = rankAndDeduplicate(usableResults,
+                                        searchedTrackName: searchedTrackName,
+                                        targetDurationMS: viewmodel.duration)
         guard !Task.isCancelled else { return }
 
         agreementScores = ranked.scores
@@ -246,16 +249,39 @@ struct SearchWindow: View {
         hasCompletedSearch = true
     }
 
+    /// Ranks candidates on three signals at once rather than on lyric agreement alone.
+    ///
+    /// Agreement -- how closely another provider's copy of the same words matches -- was the
+    /// whole ranking, and it measures the wrong thing: it says a song is widely catalogued, not
+    /// that it is the song being searched for. Searching "Dec." by Kanaria put two of the
+    /// artist's better-known tracks above it at 81% and 78% against its own 69%, precisely
+    /// because those are carried identically everywhere while the right song's copies disagree
+    /// over credit lines. Duration was in the sort but never reached: it only broke ties in a
+    /// continuous Jaccard value, which effectively never ties.
+    ///
+    /// So duration carries the most weight -- it is the signal that survives translation and
+    /// romanisation, which is why the providers already lean on it -- with the title next and
+    /// agreement demoted to a corroborating bonus. A signal that cannot be computed hands its
+    /// weight to the others rather than standing in with an invented middle value.
     private func rankAndDeduplicate(
         _ results: [SongResult],
+        searchedTrackName: String,
         targetDurationMS: Int
     ) -> (results: [SongResult], scores: [UUID: Double]) {
         struct Candidate {
             let result: SongResult
             let fingerprint: Set<String>
-            let agreementScore: Double
+            let score: Double
             let arrivalOrder: Int
         }
+
+        let durationWeight = 0.5
+        let titleWeight = 0.3
+        let agreementWeight = 0.2
+        /// Recordings of one song differ by a second or two between catalogues, so that much is
+        /// no evidence either way; past a quarter of a minute it is a different recording.
+        let durationFullCredit = 2_000
+        let durationNoCredit = 15_000
 
         let fingerprints = Dictionary(uniqueKeysWithValues: results.map {
             ($0.id, LyricAgreement.fingerprint($0.lyrics))
@@ -268,31 +294,53 @@ struct SearchWindow: View {
                 .map { LyricAgreement.similarity(fingerprint, fingerprints[$0.id] ?? []) }
                 .max() ?? 0
 
+            // Unknown when the candidate carries no length, or when nothing is playing to
+            // compare it against.
+            let durationFit: Double?
+            if let durationMS = result.durationMS, targetDurationMS != 0 {
+                let difference = abs(durationMS - targetDurationMS)
+                switch difference {
+                    case ..<durationFullCredit: durationFit = 1
+                    case durationNoCredit...: durationFit = 0
+                    default:
+                        durationFit = Double(durationNoCredit - difference)
+                            / Double(durationNoCredit - durationFullCredit)
+                }
+            } else {
+                durationFit = nil
+            }
+
+            // StringMetric answers 0 for titles in different scripts -- a romanised title
+            // against its original, say. Under weighting that costs a candidate 0.3 rather
+            // than ruling it out, which is the point of scoring instead of filtering.
+            let titleSimilarity = searchedTrackName.isEmpty
+                ? nil
+                : searchedTrackName.distance(between: result.songName)
+
+            var weighted = agreementScore * agreementWeight
+            var available = agreementWeight
+            if let durationFit {
+                weighted += durationFit * durationWeight
+                available += durationWeight
+            }
+            if let titleSimilarity {
+                weighted += titleSimilarity * titleWeight
+                available += titleWeight
+            }
+
             return Candidate(
                 result: result,
                 fingerprint: fingerprint,
-                agreementScore: agreementScore,
+                score: min(max(weighted / available, 0), 1),
                 arrivalOrder: arrivalOrder
             )
         }
 
         candidates.sort { lhs, rhs in
-            if lhs.agreementScore != rhs.agreementScore {
-                return lhs.agreementScore > rhs.agreementScore
+            if lhs.score != rhs.score {
+                return lhs.score > rhs.score
             }
-
-            let lhsDifference = lhs.result.durationMS.map { abs($0 - targetDurationMS) }
-            let rhsDifference = rhs.result.durationMS.map { abs($0 - targetDurationMS) }
-            switch (lhsDifference, rhsDifference) {
-            case let (lhs?, rhs?) where lhs != rhs:
-                return lhs < rhs
-            case (_?, nil):
-                return true
-            case (nil, _?):
-                return false
-            default:
-                return lhs.arrivalOrder < rhs.arrivalOrder
-            }
+            return lhs.arrivalOrder < rhs.arrivalOrder
         }
 
         var deduplicated: [Candidate] = []
@@ -308,8 +356,9 @@ struct SearchWindow: View {
 
         return (
             deduplicated.map(\.result),
+            // The column is headed "Match", so it shows what the ranking actually used.
             Dictionary(uniqueKeysWithValues: deduplicated.map {
-                ($0.result.id, $0.agreementScore)
+                ($0.result.id, $0.score)
             })
         )
     }
