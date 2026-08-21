@@ -13,45 +13,51 @@ import AppKit
 /// are already parked to the right. So it is measured once and remeasured only when the screen
 /// arrangement changes.
 enum MenubarSpace {
-    /// Points between the notch and this app's own status item, i.e. everything the lyric could
-    /// grow into. Nil when the item has not been placed yet, or on a screen without a notch,
-    /// where no reliable reference edge exists.
+    /// The screen whose menu bar is the tight one. Not `NSScreen.main`: that is wherever the
+    /// keyboard focus is, which on a docked Mac is routinely an external display with no notch
+    /// and no crowding. The notched bar is the one that runs out of room.
+    private static var notchedScreen: NSScreen? {
+        NSScreen.screens.first(where: { $0.auxiliaryTopRightArea != nil })
+    }
+
+    /// This app's own status-item window, or nil before the item is placed.
     ///
     /// `MenuBarExtra` keeps its `NSStatusItem` to itself, so the item is found by its window
-    /// instead: the app owns exactly one on-screen `NSStatusBarWindow`. This only reads a frame
-    /// -- nothing here reaches into SwiftUI's ownership of the item.
-    /// - Parameter currentDrawnWidth: width of the image currently in the item. The status item
-    ///   frames its content with padding, so the frame is always wider than what we drew; this
-    ///   lets the difference be measured instead of guessed. Getting that wrong pushes the item
-    ///   under the notch and macOS collapses the whole menu bar behind a chevron.
-    static func availableWidth(currentDrawnWidth: CGFloat) -> CGFloat? {
-        // The notched screen, not NSScreen.main: main is wherever the keyboard focus is, which
-        // on a docked Mac is routinely an external display with no notch and no crowding. The
-        // notched menu bar is the one that runs out of room, so it is the one worth measuring.
-        guard let screen = NSScreen.screens.first(where: { $0.auxiliaryTopRightArea != nil }),
-              let notchRightEdge = screen.auxiliaryTopRightArea?.minX else { return nil }
-        // One status window per screen, so the frames have to be filtered to that screen before
-        // any of them is compared. Picking the right-most across all screens instead reaches
-        // onto whichever display sits furthest right and measures it against this screen's
-        // notch: with an external at x=2952 that produced 2283pt of "available" space, which
-        // silently outranks every slider setting and switches the whole limit off.
-        // Geometry, not just class name. The item's window is exactly the menu bar: menu-bar
-        // height, and its top edge flush with the top of the screen. The panel that drops out
-        // of a MenuBarExtra hangs below the menu bar and is far taller, so anything that does
-        // not sit in the bar itself is excluded here -- otherwise opening the panel changes
-        // what gets measured, and the width limit quietly stops applying while it is open.
+    /// instead. Identifying it lives here alone, because two callers need it: the measurement
+    /// below, and whoever wants to watch it move.
+    ///
+    /// The filter is geometric, not just the class name. One status window exists per screen,
+    /// so the frames have to be narrowed to the notched screen before any of them is compared
+    /// -- picking the right-most across all screens instead reaches onto whichever display sits
+    /// furthest right and measures it against this screen's notch: with an external at x=2952
+    /// that produced 2283pt of "available" space, silently outranking every slider setting and
+    /// switching the whole limit off. And the panel that drops out of a `MenuBarExtra` is an
+    /// `NSStatusBarWindow` too, but hangs below the bar and is far taller, so height and top
+    /// edge exclude it -- otherwise opening the panel changes what gets measured.
+    static func statusItemWindow() -> NSWindow? {
+        guard let screen = notchedScreen else { return nil }
         let menuBarHeight = screen.frame.maxY - screen.visibleFrame.maxY
-        let statusWindows = NSApp.windows.filter {
+        return NSApp.windows.filter {
             let frame = $0.frame
             return String(describing: type(of: $0)) == "NSStatusBarWindow"
                 && screen.frame.contains(CGPoint(x: frame.midX, y: frame.midY))
                 && abs(frame.maxY - screen.frame.maxY) <= 2
                 && frame.height <= max(menuBarHeight, 24) + 8
-        }
-        guard let ourFrame = statusWindows.map(\.frame).max(by: { $0.maxX < $1.maxX }) else {
-            print("MenubarSpace: no status window on the notched screen -> nil")
-            return nil
-        }
+        }.max(by: { $0.frame.maxX < $1.frame.maxX })
+    }
+
+    /// Points between the notch and this app's own status item, i.e. everything the lyric could
+    /// grow into. Nil when the item has not been placed yet, or on a screen without a notch,
+    /// where no reliable reference edge exists.
+    ///
+    /// - Parameter currentDrawnWidth: width of the image currently in the item. The status item
+    ///   frames its content with padding, so the frame is always wider than what we drew; this
+    ///   lets the difference be measured instead of guessed. Getting that wrong pushes the item
+    ///   under the notch and macOS collapses the whole menu bar behind a chevron.
+    static func availableWidth(currentDrawnWidth: CGFloat) -> CGFloat? {
+        guard let screen = notchedScreen,
+              let notchRightEdge = screen.auxiliaryTopRightArea?.minX,
+              let ourFrame = statusItemWindow()?.frame else { return nil }
         let padding = max(ourFrame.width - currentDrawnWidth, 0)
         let available = ourFrame.maxX - notchRightEdge - padding
         guard available > 0 else {

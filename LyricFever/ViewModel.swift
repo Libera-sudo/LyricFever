@@ -208,7 +208,23 @@ import MediaRemoteAdapter
     /// remeasured only when the screen arrangement changes -- see `MenubarSpace`.
     var menubarLyricWidth: CGFloat = 180
 
-    func remeasureMenubarWidth() {
+    /// Coalesces a burst of moves into one pass. Cancelled and replaced rather than queued.
+    @ObservationIgnored private var menubarMoveRemeasure: Task<Void, Never>?
+
+    /// The bar packs from the right, so anything another app adds or removes shifts this item,
+    /// and that shift is the only notice available that the free space changed -- other apps'
+    /// status items cannot be enumerated without Screen Recording, and the bar comes back from
+    /// CGWindowList as one full-width WindowServer surface.
+    func statusItemDidMove() {
+        menubarMoveRemeasure?.cancel()
+        menubarMoveRemeasure = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .milliseconds(250))
+            guard !Task.isCancelled else { return }
+            self?.remeasureMenubarWidth(afterStatusItemMove: true)
+        }
+    }
+
+    func remeasureMenubarWidth(afterStatusItemMove: Bool = false) {
         let cap = CGFloat(userDefaultStorage.menubarWidth)
         // A margin so the lyric never butts straight up against the notch.
         // Deliberately short of what fits. The space beside the notch is not ours to fill: the
@@ -220,6 +236,10 @@ import MediaRemoteAdapter
         let measured = MenubarSpace.availableWidth(currentDrawnWidth: menubarLyricWidth).map { $0 - headroom }
         let width = min(cap, measured ?? cap)
         let clamped = max(width, 80)
+        // Applying a new width moves the item, which posts another move, which lands back here:
+        // without a deadband the two chase each other a point at a time. It belongs to this path
+        // only -- dragging the slider stays exact to the point.
+        if afterStatusItemMove, abs(clamped - menubarLyricWidth) < 8 { return }
         if clamped != menubarLyricWidth {
             print("Menubar: lyric width \(Int(menubarLyricWidth))pt -> \(Int(clamped))pt (cap \(Int(cap))pt)")
             menubarLyricWidth = clamped

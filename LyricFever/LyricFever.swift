@@ -65,6 +65,11 @@ struct LyricFever: App {
             .onReceive(NotificationCenter.default.publisher(for: NSApplication.didChangeScreenParametersNotification)) { _ in
                 viewmodel.remeasureMenubarWidth()
             }
+            .onReceive(NotificationCenter.default.publisher(for: NSWindow.didMoveNotification)) { notification in
+                guard let moved = notification.object as? NSWindow else { return }
+                guard moved === MenubarSpace.statusItemWindow() else { return }
+                viewmodel.statusItemDidMove()
+            }
             .onChange(of: viewmodel.userDefaultStorage.menubarWidth) {
                 viewmodel.remeasureMenubarWidth()
             }
