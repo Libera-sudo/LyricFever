@@ -94,10 +94,22 @@ private final class MenubarTruncationSliderCell: NSSliderCell {
         ticks.stroke()
     }
 
+    /// The limit in force for the current gesture, taken once when it begins.
+    ///
+    /// It has to be frozen, because the live one moves while the drag is happening and moving it
+    /// throws the knob around. The measurement derives the status item's padding from
+    /// `frame.width - currentDrawnWidth`; dragging changes the drawn width immediately while the
+    /// window's frame catches up a beat later, so mid-drag the subtraction goes negative, the
+    /// padding reads as zero, and the ceiling jumps by about the padding's width -- then falls
+    /// back once the frame lands. Clamping to a target that oscillates is what sent the knob
+    /// flying near the end of the track.
+    private var gestureCeiling: Double??
+
     /// Clicking the track jumps the knob without ever dragging, and the mouse-up settles the
     /// final value, so both ends of the gesture need the same limit as the drag itself.
     override func startTracking(at startPoint: NSPoint, in controlView: NSView) -> Bool {
         let started = super.startTracking(at: startPoint, in: controlView)
+        gestureCeiling = .some(effectiveCeiling)
         clampToCeiling()
         return started
     }
@@ -105,12 +117,15 @@ private final class MenubarTruncationSliderCell: NSSliderCell {
     override func stopTracking(last: NSPoint, current: NSPoint, in controlView: NSView, mouseIsUp: Bool) {
         super.stopTracking(last: last, current: current, in: controlView, mouseIsUp: mouseIsUp)
         clampToCeiling()
+        gestureCeiling = nil
     }
 
+    /// True between mouse-down and mouse-up, so the representable can keep out of the way.
+    var isTracking: Bool { gestureCeiling != nil }
+
     private func clampToCeiling() {
-        if let boundary = effectiveCeiling, doubleValue > boundary {
-            doubleValue = boundary
-        }
+        guard let boundary = gestureCeiling ?? effectiveCeiling, doubleValue > boundary else { return }
+        doubleValue = boundary
     }
 
     override func continueTracking(last: NSPoint, current: NSPoint, in controlView: NSView) -> Bool {
@@ -155,8 +170,13 @@ struct MenubarTruncationSlider: NSViewRepresentable {
 
     func updateNSView(_ slider: NSSlider, context: Context) {
         context.coordinator.value = $value
-        if slider.doubleValue != value { slider.doubleValue = value }
         guard let cell = slider.cell as? MenubarTruncationSliderCell else { return }
+        // Not while the pointer owns it. The binding stores whole points, so writing the rounded
+        // value back mid-drag drags the knob half a point away from the pointer and the next
+        // mouse event pulls it back -- a fight nobody wins, and one the clamp joins in on.
+        if !cell.isTracking, slider.doubleValue != value {
+            slider.doubleValue = value
+        }
         let newCeiling = ceiling.map(Double.init)
         if cell.ceiling != newCeiling {
             cell.ceiling = newCeiling
