@@ -13,6 +13,9 @@ import AppKit
 /// are already parked to the right. So it is measured once and remeasured only when the screen
 /// arrangement changes.
 enum MenubarSpace {
+    /// Read and written only from the main thread, where every caller already is.
+    nonisolated(unsafe) private static var lastKnownPadding: CGFloat = 16
+
     /// The screen whose menu bar is the tight one. Not `NSScreen.main`: that is wherever the
     /// keyboard focus is, which on a docked Mac is routinely an external display with no notch
     /// and no crowding. The notched bar is the one that runs out of room.
@@ -58,7 +61,15 @@ enum MenubarSpace {
         guard let screen = notchedScreen,
               let notchRightEdge = screen.auxiliaryTopRightArea?.minX,
               let ourFrame = statusItemWindow()?.frame else { return nil }
-        let padding = max(ourFrame.width - currentDrawnWidth, 0)
+        // The status item insets its content by a fixed amount, but its frame catches up a beat
+        // after the drawn width changes -- so subtracting the two during a change reads as zero
+        // and inflates the answer by an item's worth of padding. Mid-drag that made the ceiling
+        // jump and fall every frame, which threw the slider's knob around and blinked the
+        // readout orange. Only a difference in the plausible range is believed; otherwise the
+        // last believable one stands.
+        let observed = ourFrame.width - currentDrawnWidth
+        if (0...40).contains(observed) { lastKnownPadding = observed }
+        let padding = lastKnownPadding
         let available = ourFrame.maxX - notchRightEdge - padding
         guard available > 0 else {
             // Nothing left of the notch to measure from means the item has already been pushed

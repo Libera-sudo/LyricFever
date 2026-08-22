@@ -11,7 +11,7 @@ import Translation
 
 /// Carries the main page's measured height up to the container that pins the other pages to it.
 private struct MainPageHeightKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
+    static let defaultValue: CGFloat = 0
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
         value = max(value, nextValue())
     }
@@ -200,8 +200,15 @@ struct MenubarWindowView: View {
     }
     
     /// True when the menu bar, not the slider, is what limits the lyric.
+    /// True when the slider is asking for more than the bar can give.
+    ///
+    /// Measured against the ceiling rather than against the width in effect. The width is
+    /// recomputed a beat after the cap changes, so while dragging there is always a frame in
+    /// which it trails the cap -- and the readout blinked orange on the way up, long before any
+    /// limit was reached. A point of slack absorbs what is left of the measurement's own jitter.
     var cappedBySpace: Bool {
-        viewmodel.menubarLyricWidth < CGFloat(viewmodel.userDefaultStorage.menubarWidth)
+        guard let ceiling = viewmodel.measuredMenubarWidth else { return false }
+        return CGFloat(viewmodel.userDefaultStorage.menubarWidth) > ceiling + 1
     }
 
     var truncationBinding: Binding<Double> {
