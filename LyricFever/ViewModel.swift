@@ -485,9 +485,7 @@ import MediaRemoteAdapter
                 print("Translation Service: isFetchingTranslation set to false due to success")
                 isFetchingTranslation = false
                 if currentlyPlayingLyrics.count == array.count {
-                    translatedLyric = array.map {
-                        $0.targetText
-                    }
+                    translatedLyric = restoringChants(array.map { $0.targetText })
                     romanizeDidChange()
                 }
             case .needsConfigUpdate(let language):
@@ -986,7 +984,7 @@ import MediaRemoteAdapter
             // must never be pinned onto a different song's lyrics.
             guard currentlyPlaying == requestedSong else { return }
             if let local, local.count == lines.count {
-                translatedLyric = matchingChineseScript(local, for: userLocaleLanguage)
+                translatedLyric = restoringChants(matchingChineseScript(local, for: userLocaleLanguage))
                 romanizeDidChange()
                 isFetchingTranslation = false
             } else if !reloadTranslationConfigIfTranslating() {
@@ -1034,6 +1032,37 @@ import MediaRemoteAdapter
         let runnerUp = languageCounts.filter { $0.key != majority.key }.values.max() ?? 0
         guard Double(runnerUp) < 0.20 * Double(recognizedLineCount) else { return nil }
         return Locale.Language(identifier: majority.key.rawValue)
+    }
+
+    /// Puts the original words back for lines that are chants rather than sentences.
+    ///
+    /// A translator handed one short line has no context to work with and answers with the
+    /// dictionary sense, which is wrong for a hook: APT.'s "아파트, 아파트" came back as
+    /// "Apartment, apartment", the literal reading of a word that is functioning as the song's
+    /// title and its chant. Interjections go the same way.
+    ///
+    /// The test is repetition, not brevity, and it takes *two* repeats rather than one. Brevity
+    /// alone swept up ordinary short lines like "광야로 걸어가"; a single repeat still swept up
+    /// "중심을 잃고 목소리도 잃고" and "To Kosmo, yeah, yeah". Requiring at most three distinct
+    /// words and at least two repetitions among them separates the chants -- "아파트, 아파트,
+    /// uh, uh-huh, uh-huh", "La-la-la-la-la", "제껴라, 제껴라, 제껴라" -- from lines that are
+    /// saying something. Checked line by line against six songs, including this app's own
+    /// stored copy of APT., whose provider packs the hook and the interjection onto one line.
+    private func lineIsAChant(_ words: String) -> Bool {
+        let tokens = words.lowercased()
+            .split(whereSeparator: { $0.isWhitespace || $0.isPunctuation })
+            .map(String.init)
+        guard tokens.count >= 2 else { return false }
+        let distinct = Set(tokens)
+        return distinct.count <= 3 && tokens.count - distinct.count >= 2
+    }
+
+    /// Applied to whichever translator produced the lines, so both paths agree.
+    private func restoringChants(_ translated: [String]) -> [String] {
+        guard translated.count == currentlyPlayingLyrics.count else { return translated }
+        return zip(translated, currentlyPlayingLyrics).map { line, original in
+            lineIsAChant(original.words) ? original.words : line
+        }
     }
 
     /// Hy-MT2 writes Simplified Chinese whatever variant was asked for -- its template only
