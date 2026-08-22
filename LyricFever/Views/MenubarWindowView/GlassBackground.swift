@@ -46,8 +46,9 @@ extension View {
     }
 }
 
-/// AppKit because SwiftUI's `Slider` gives nothing that can intercept a drag, and stopping the
-/// knob at the width the menu bar can actually give is the whole point of this cell.
+/// AppKit because SwiftUI's `Slider` gives nothing that can intercept a drag, and holding the
+/// knob at the width the menu bar can actually give -- on a rubber band, not a wall -- is the
+/// whole point of this cell.
 private final class MenubarTruncationSliderCell: NSSliderCell {
     /// Values above this have no room in the menu bar, so the drag stops there. Nil when nothing
     /// could be measured -- which is not the same as unavailable, and stops nothing.
@@ -108,6 +109,8 @@ private final class MenubarTruncationSliderCell: NSSliderCell {
     /// Clicking the track jumps the knob without ever dragging, and the mouse-up settles the
     /// final value, so both ends of the gesture need the same limit as the drag itself.
     override func startTracking(at startPoint: NSPoint, in controlView: NSView) -> Bool {
+        springBack?.cancel()
+        springBack = nil
         let started = super.startTracking(at: startPoint, in: controlView)
         gestureCeiling = .some(effectiveCeiling)
         clampToCeiling()
@@ -117,15 +120,57 @@ private final class MenubarTruncationSliderCell: NSSliderCell {
     override func stopTracking(last: NSPoint, current: NSPoint, in controlView: NSView, mouseIsUp: Bool) {
         super.stopTracking(last: last, current: current, in: controlView, mouseIsUp: mouseIsUp)
         clampToCeiling()
+        let limit = gestureCeiling ?? effectiveCeiling
         gestureCeiling = nil
+        if let limit { startSpringBack(to: limit, in: controlView) }
     }
 
-    /// True between mouse-down and mouse-up, so the representable can keep out of the way.
-    var isTracking: Bool { gestureCeiling != nil }
+    /// True while the pointer owns the knob, and while it is springing back afterwards, so the
+    /// representable can keep out of the way for the whole of it.
+    var isTracking: Bool { gestureCeiling != nil || springBack != nil }
+
+    private var springBack: Task<Void, Never>?
+
+    /// How far past the limit the knob can be pulled, in slider units, however hard you pull.
+    private let maxStretch = 20.0
+
+    /// The rubber band: displacement that grows ever more slowly and never passes `maxStretch`.
+    /// The shape is the one Apple's scroll views use -- resistance rising with distance rather
+    /// than a fixed fraction, so the first point past the limit gives easily and the twentieth
+    /// hardly at all.
+    private func stretched(_ overshoot: Double) -> Double {
+        maxStretch * (1 - 1 / (overshoot * 0.55 / maxStretch + 1))
+    }
 
     private func clampToCeiling() {
         guard let boundary = gestureCeiling ?? effectiveCeiling, doubleValue > boundary else { return }
-        doubleValue = boundary
+        doubleValue = boundary + stretched(doubleValue - boundary)
+    }
+
+    /// Eases the knob back to the limit it was pulled past. Cheap and finite -- a dozen frames,
+    /// then the exact value -- rather than anything that stays resident.
+    private func startSpringBack(to limit: Double, in controlView: NSView) {
+        springBack?.cancel()
+        let from = doubleValue
+        guard from > limit else { return }
+        let control = controlView as? NSControl
+        springBack = Task { @MainActor [weak self] in
+            let frames = 12
+            for frame in 1...frames {
+                try? await Task.sleep(for: .milliseconds(16))
+                guard let self, !Task.isCancelled else { return }
+                let progress = Double(frame) / Double(frames)
+                let eased = 1 - pow(1 - progress, 3)
+                self.doubleValue = from + (limit - from) * eased
+                control?.sendAction(control?.action, to: control?.target)
+                controlView.needsDisplay = true
+            }
+            guard let self, !Task.isCancelled else { return }
+            self.doubleValue = limit
+            control?.sendAction(control?.action, to: control?.target)
+            controlView.needsDisplay = true
+            self.springBack = nil
+        }
     }
 
     override func continueTracking(last: NSPoint, current: NSPoint, in controlView: NSView) -> Bool {
@@ -143,8 +188,8 @@ private final class MenubarTruncationSliderCell: NSSliderCell {
     }
 }
 
-/// The width slider. Continuous, marked at four reference widths, and unable to be dragged past
-/// the width the menu bar has room for.
+/// The width slider. Continuous, marked at four reference widths, and rubber-banded at the width
+/// the menu bar has room for: it gives a little under a hard pull and springs back on release.
 ///
 /// It claims the row's slack rather than a fixed width: the `...` menu has no set width on
 /// macOS 26+, so a fixed slider plus spacers could push Quit off the row, and the longest
