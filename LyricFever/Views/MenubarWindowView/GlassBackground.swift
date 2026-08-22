@@ -79,6 +79,35 @@ private final class MenubarTruncationSliderCell: NSSliderCell {
         NSColor.secondaryLabelColor.withAlphaComponent(0.62).setFill()
         NSRect(x: bar.minX, y: bar.minY, width: bar.width * filled, height: bar.height).fill()
 
+        // Only while the band is stretched: the knob has passed what the bar can give and is
+        // still being pulled. The hatching starts at the knob rather than at the ceiling, so it
+        // marks the road ahead -- there is nothing there to reach -- instead of restating a
+        // boundary the knob has already crossed. It disappears as the knob springs back.
+        if let boundary = effectiveCeiling, doubleValue > boundary {
+            let knob = knobRect(flipped: flipped)
+            let start = max(knob.maxX, bar.minX)
+            if start < bar.maxX {
+                let hatch = NSRect(x: start, y: bar.minY, width: bar.maxX - start, height: bar.height)
+                NSGraphicsContext.saveGraphicsState()
+                NSBezierPath(rect: hatch).addClip()
+                NSColor.systemYellow.withAlphaComponent(0.20).setFill()
+                hatch.fill()
+                NSColor.systemYellow.withAlphaComponent(0.85).setStroke()
+                let stripes = NSBezierPath()
+                stripes.lineWidth = 1.2
+                // Spaced wider than the bar is tall, so each stroke reads as its own diagonal
+                // rather than merging with its neighbours into a braid at this size.
+                var x = hatch.minX - hatch.height
+                while x < hatch.maxX {
+                    stripes.move(to: NSPoint(x: x, y: hatch.minY))
+                    stripes.line(to: NSPoint(x: x + hatch.height, y: hatch.maxY))
+                    x += 7
+                }
+                stripes.stroke()
+                NSGraphicsContext.restoreGraphicsState()
+            }
+        }
+
         NSGraphicsContext.restoreGraphicsState()
 
         // Drawn here rather than through numberOfTickMarks, which spaces its marks evenly: these
@@ -189,7 +218,8 @@ private final class MenubarTruncationSliderCell: NSSliderCell {
 }
 
 /// The width slider. Continuous, marked at four reference widths, and rubber-banded at the width
-/// the menu bar has room for: it gives a little under a hard pull and springs back on release.
+/// the menu bar has room for: it gives a little under a hard pull, hatches the track ahead of the
+/// knob while it is stretched, and springs back on release.
 ///
 /// It claims the row's slack rather than a fixed width: the `...` menu has no set width on
 /// macOS 26+, so a fixed slider plus spacers could push Quit off the row, and the longest
