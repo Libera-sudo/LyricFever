@@ -87,12 +87,19 @@ private final class MenubarTruncationSliderCell: NSSliderCell {
             let knob = knobRect(flipped: flipped)
             let start = max(knob.maxX, bar.minX)
             if start < bar.maxX {
+                // Opacity rides the stretch itself rather than a timer: the hatching grows in
+                // under the hand that is pulling and fades back out on its own as the band
+                // returns, so there is no frame where it simply appears. The square root lifts
+                // the first few points of travel out of invisibility -- linear, the warning only
+                // showed up once the pull was nearly spent.
+                let stretch = min((doubleValue - boundary) / maxStretch, 1)
+                let intensity = CGFloat(stretch.squareRoot())
                 let hatch = NSRect(x: start, y: bar.minY, width: bar.maxX - start, height: bar.height)
                 NSGraphicsContext.saveGraphicsState()
                 NSBezierPath(rect: hatch).addClip()
-                NSColor.systemYellow.withAlphaComponent(0.20).setFill()
+                NSColor.systemYellow.withAlphaComponent(0.20 * intensity).setFill()
                 hatch.fill()
-                NSColor.systemYellow.withAlphaComponent(0.85).setStroke()
+                NSColor.systemYellow.withAlphaComponent(0.85 * intensity).setStroke()
                 let stripes = NSBezierPath()
                 stripes.lineWidth = 1.2
                 // Spaced wider than the bar is tall, so each stroke reads as its own diagonal
@@ -219,7 +226,7 @@ private final class MenubarTruncationSliderCell: NSSliderCell {
 
 /// The width slider. Continuous, marked at four reference widths, and rubber-banded at the width
 /// the menu bar has room for: it gives a little under a hard pull, hatches the track ahead of the
-/// knob while it is stretched, and springs back on release.
+/// knob as it stretches -- the hatching fading in with the pull -- and springs back on release.
 ///
 /// It claims the row's slack rather than a fixed width: the `...` menu has no set width on
 /// macOS 26+, so a fixed slider plus spacers could push Quit off the row, and the longest
