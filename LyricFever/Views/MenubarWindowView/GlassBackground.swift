@@ -83,7 +83,15 @@ private final class MenubarTruncationSliderCell: NSSliderCell {
         // still being pulled. The hatching starts at the knob rather than at the ceiling, so it
         // marks the road ahead -- there is nothing there to reach -- instead of restating a
         // boundary the knob has already crossed. It disappears as the knob springs back.
-        if let boundary = effectiveCeiling, doubleValue > boundary {
+        // Only during a gesture -- the pull itself or the spring back from it. Without that
+        // condition a ceiling that drops below the stored value while nothing is happening reads
+        // as "stretched", and the tape would run at thirty frames a second behind a closed panel.
+        let stretchedNow = isTracking && effectiveCeiling.map { doubleValue > $0 } == true
+        if !stretchedNow {
+            stripeTicker?.cancel()
+            stripeTicker = nil
+        }
+        if stretchedNow, let boundary = effectiveCeiling {
             let knob = knobRect(flipped: flipped)
             let start = max(knob.maxX, bar.minX)
             if start < bar.maxX {
@@ -104,14 +112,21 @@ private final class MenubarTruncationSliderCell: NSSliderCell {
                 stripes.lineWidth = 1.2
                 // Spaced wider than the bar is tall, so each stroke reads as its own diagonal
                 // rather than merging with its neighbours into a braid at this size.
-                var x = hatch.minX - hatch.height
+                let spacing: CGFloat = 7
+                // Hazard tape: the pattern travels while the band is stretched. The phase comes
+                // from the clock rather than from a counter, so a dropped frame shifts nothing --
+                // and it starts a period early so the leading edge is covered as it scrolls in.
+                let phase = CGFloat(CACurrentMediaTime() * 16)
+                    .truncatingRemainder(dividingBy: spacing)
+                var x = hatch.minX - hatch.height - spacing + phase
                 while x < hatch.maxX {
                     stripes.move(to: NSPoint(x: x, y: hatch.minY))
                     stripes.line(to: NSPoint(x: x + hatch.height, y: hatch.maxY))
-                    x += 7
+                    x += spacing
                 }
                 stripes.stroke()
                 NSGraphicsContext.restoreGraphicsState()
+                keepStripesMoving()
             }
         }
 
@@ -166,6 +181,22 @@ private final class MenubarTruncationSliderCell: NSSliderCell {
     var isTracking: Bool { gestureCeiling != nil || springBack != nil }
 
     private var springBack: Task<Void, Never>?
+
+    /// Redraws while the hatching is on screen. Mouse events already invalidate the cell during
+    /// a drag, but a hand held still at full stretch sends none -- and that is exactly when the
+    /// tape should still be running. Ends itself the moment the hatching stops being drawn.
+    private var stripeTicker: Task<Void, Never>?
+
+    private func keepStripesMoving() {
+        guard stripeTicker == nil, let view = controlView else { return }
+        stripeTicker = Task { @MainActor [weak self, weak view] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(33))
+                guard self != nil, let view, !Task.isCancelled else { return }
+                view.needsDisplay = true
+            }
+        }
+    }
 
     /// How far past the limit the knob can be pulled, in slider units, however hard you pull.
     private let maxStretch = 20.0
