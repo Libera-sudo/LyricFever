@@ -58,9 +58,24 @@ enum MenubarSpace {
     ///   lets the difference be measured instead of guessed. Getting that wrong pushes the item
     ///   under the notch and macOS collapses the whole menu bar behind a chevron.
     static func availableWidth(currentDrawnWidth: CGFloat) -> CGFloat? {
-        guard let screen = notchedScreen,
-              let notchRightEdge = screen.auxiliaryTopRightArea?.minX,
-              let ourFrame = statusItemWindow()?.frame else { return nil }
+        // Each way of failing gets its own line. They are not interchangeable: the caller turns
+        // every one of them into "use the slider's cap", so from the outside a failure and a
+        // perfectly ordinary cap-limited measurement print the same number. That is what made
+        // this look random -- there was no way to tell which had happened.
+        guard let screen = notchedScreen, let notchRightEdge = screen.auxiliaryTopRightArea?.minX else {
+            print("MenubarSpace: no screen with a notch -- lid closed, or external displays only")
+            return nil
+        }
+        guard let ourFrame = statusItemWindow()?.frame else {
+            // The window exists whenever the item is on show, so not finding it on the notched
+            // screen means the item is not on show: most likely collapsed behind the chevron,
+            // which happens precisely when it has grown too wide.
+            // Measured 2026-08-24: a second after launch the windows exist but are still parked
+            // below the screen (maxY 0 against the bar's 982), so none of them is in the bar yet.
+            // Not a collapsed item -- an item that has not been placed.
+            print("MenubarSpace: no status window in the bar yet")
+            return nil
+        }
         // The status item insets its content by a fixed amount, but its frame catches up a beat
         // after the drawn width changes -- so subtracting the two during a change reads as zero
         // and inflates the answer by an item's worth of padding. Mid-drag that made the ceiling
@@ -72,6 +87,7 @@ enum MenubarSpace {
         let padding = lastKnownPadding
         let available = ourFrame.maxX - notchRightEdge - padding
         guard available > 0 else {
+            print("MenubarSpace: item sits left of the notch (available \(Int(available))pt) -- shrinking")
             // Nothing left of the notch to measure from means the item has already been pushed
             // past it, i.e. it is too wide right now. Returning nil here would hand the caller
             // its fallback -- the raw slider cap, the very width that overflowed -- and the

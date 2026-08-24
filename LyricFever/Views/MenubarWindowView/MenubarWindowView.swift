@@ -261,7 +261,14 @@ struct MenubarWindowView: View {
             Text("\(cappedBySpace ? Int(viewmodel.menubarLyricWidth) : viewmodel.userDefaultStorage.menubarWidth)")
                 .font(.caption)
                 .monospacedDigit()
-                .foregroundStyle(cappedBySpace ? Color.orange : Color.primary)
+                // Three states, because there are three: the slider is the limit (plain), the
+                // bar is (orange), or nothing could be measured and this number is backed by
+                // nothing at all (dimmed). Dimmed rather than a third hue -- orange and yellow
+                // are not tellable apart at this size.
+                .foregroundStyle(
+                    viewmodel.measuredMenubarWidth == nil ? AnyShapeStyle(.secondary)
+                        : cappedBySpace ? AnyShapeStyle(Color.orange) : AnyShapeStyle(Color.primary)
+                )
                 .frame(width: 26)
             Button("Quit") {
                 NSApplication.shared.terminate(nil)

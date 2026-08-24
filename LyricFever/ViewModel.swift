@@ -251,7 +251,15 @@ import MediaRemoteAdapter
         // only -- dragging the slider stays exact to the point.
         if afterStatusItemMove, abs(clamped - menubarLyricWidth) < 8 { return }
         if clamped != menubarLyricWidth {
-            print("Menubar: lyric width \(Int(menubarLyricWidth))pt -> \(Int(clamped))pt (cap \(Int(cap))pt)")
+            // Which of the two won matters and used to be invisible: an unmeasured fallback and
+            // a genuinely cap-limited measurement both printed the same width.
+            let reason: String
+            if let measured {
+                reason = measured < cap ? "space \(Int(measured))pt" : "cap \(Int(cap))pt"
+            } else {
+                reason = "UNMEASURED, fell back to cap \(Int(cap))pt"
+            }
+            print("Menubar: lyric width \(Int(menubarLyricWidth))pt -> \(Int(clamped))pt (\(reason))")
             menubarLyricWidth = clamped
         }
     }
