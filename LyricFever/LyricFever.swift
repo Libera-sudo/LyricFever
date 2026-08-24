@@ -55,12 +55,9 @@ struct LyricFever: App {
             }
             .onAppear {
                 viewmodel.onAppear()
-                // The status item does not exist yet on the first pass, so the first
-                // measurement waits for it to be placed.
-                Task { @MainActor in
-                    try? await Task.sleep(for: .seconds(1))
-                    viewmodel.remeasureMenubarWidth()
-                }
+                // Retries until the item is actually in the bar: waiting a fixed second and
+                // measuring once was a race, and losing it cost the whole session.
+                viewmodel.measureUntilPlaced()
             }
             .onReceive(NotificationCenter.default.publisher(for: NSApplication.didChangeScreenParametersNotification)) { _ in
                 viewmodel.remeasureMenubarWidth()

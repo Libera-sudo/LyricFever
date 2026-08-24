@@ -217,6 +217,33 @@ import MediaRemoteAdapter
     /// the lyric is wider than the bar can hold, but it is not a reading of free space.
     var measuredMenubarWidth: CGFloat?
 
+    @ObservationIgnored private var initialMeasurement: Task<Void, Never>?
+
+    /// Measures as soon as the status item is actually in the menu bar, however long that takes.
+    ///
+    /// The item's window exists well before it is placed: measured 2026-08-24, a second after
+    /// launch the windows were still parked below the screen (maxY 0 against the bar's 982). The
+    /// single measurement that used to run at that moment therefore failed, fell back to the
+    /// slider's raw cap, and nothing ever retried -- the remaining triggers are a screen change,
+    /// a drag of the slider, and this item's own window moving, and a window that is created
+    /// already in place never moves. So the whole session ran unmeasured, and whether that
+    /// overflowed came down to how crowded the bar happened to be. Hence "randomly".
+    ///
+    /// Bounded, because one of the failures never resolves: with no notched screen at all there
+    /// is nothing to measure against and retrying would go on forever.
+    func measureUntilPlaced() {
+        initialMeasurement?.cancel()
+        initialMeasurement = Task { @MainActor [weak self] in
+            for _ in 0..<25 {
+                guard let self, !Task.isCancelled else { return }
+                self.remeasureMenubarWidth()
+                if self.measuredMenubarWidth != nil { return }
+                try? await Task.sleep(for: .milliseconds(400))
+            }
+            print("Menubar: still unmeasured after 10s -- running on the slider's cap")
+        }
+    }
+
     /// Coalesces a burst of moves into one pass. Cancelled and replaced rather than queued.
     @ObservationIgnored private var menubarMoveRemeasure: Task<Void, Never>?
 
