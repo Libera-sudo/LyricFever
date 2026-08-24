@@ -57,4 +57,10 @@ class UserDefaultStorage {
     // width the user is actually budgeting.
     @ObservableUserDefault(.init(key: "menubarWidth", defaultValue: 220, store: .standard))
     @ObservationIgnored var menubarWidth: Int
+    // The last width the menu bar was actually measured to have room for, remembered across
+    // launches. Without it the first moments of every launch are spent at the slider's raw cap,
+    // because the item's window is not in the bar yet and nothing can be measured -- and a cap
+    // set on a roomier day evicts other apps' icons in that window. Zero means never measured.
+    @ObservableUserDefault(.init(key: "lastMeasuredMenubarWidth", defaultValue: 0, store: .standard))
+    @ObservationIgnored var lastMeasuredMenubarWidth: Int
 }

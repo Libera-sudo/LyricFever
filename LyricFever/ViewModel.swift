@@ -217,6 +217,14 @@ import MediaRemoteAdapter
     /// the lyric is wider than the bar can hold, but it is not a reading of free space.
     var measuredMenubarWidth: CGFloat?
 
+    /// What to trust before anything has been measured this launch: whatever the bar had room
+    /// for last time, or a deliberately small starting width on a machine that has never been
+    /// measured at all.
+    private var lastKnownGoodWidth: CGFloat {
+        let remembered = userDefaultStorage.lastMeasuredMenubarWidth
+        return remembered > 0 ? CGFloat(remembered) : 180
+    }
+
     @ObservationIgnored private var initialMeasurement: Task<Void, Never>?
 
     /// Measures as soon as the status item is actually in the menu bar, however long that takes.
@@ -271,8 +279,16 @@ import MediaRemoteAdapter
         let headroom: CGFloat = 48
         let measured = MenubarSpace.availableWidth(currentDrawnWidth: menubarLyricWidth).map { $0 - headroom }
         measuredMenubarWidth = measured
-        let width = min(cap, measured ?? cap)
-        let clamped = max(width, 80)
+        if let measured {
+            userDefaultStorage.lastMeasuredMenubarWidth = Int(measured)
+        }
+        // Never claim a width that has not been verified. Falling back to the cap used to mean
+        // that every launch -- and every other failure -- grabbed the widest setting the user
+        // had ever chosen, for as long as the measurement kept failing. On a notched Mac that
+        // pushes other apps' icons off the bar, and macOS gives them back grudgingly. The last
+        // width known to fit stands in instead; the cap can still bring it down, just not up.
+        let ceiling = measured ?? lastKnownGoodWidth
+        let clamped = max(min(cap, ceiling), 80)
         // Applying a new width moves the item, which posts another move, which lands back here:
         // without a deadband the two chase each other a point at a time. It belongs to this path
         // only -- dragging the slider stays exact to the point.
@@ -284,7 +300,7 @@ import MediaRemoteAdapter
             if let measured {
                 reason = measured < cap ? "space \(Int(measured))pt" : "cap \(Int(cap))pt"
             } else {
-                reason = "UNMEASURED, fell back to cap \(Int(cap))pt"
+                reason = "UNMEASURED, held at last known \(Int(lastKnownGoodWidth))pt"
             }
             print("Menubar: lyric width \(Int(menubarLyricWidth))pt -> \(Int(clamped))pt (\(reason))")
             menubarLyricWidth = clamped
