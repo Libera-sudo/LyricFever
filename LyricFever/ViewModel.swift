@@ -254,6 +254,13 @@ import MediaRemoteAdapter
     /// then the persisted width may seed the item; after it, an unmeasured blip may only pull
     /// the width down, never up -- growing on faith is how the launch spike happened.
     @ObservationIgnored private var hasMeasuredThisSession = false
+    /// Every ceiling measured in the last five minutes. The bar breathes: Alcove's now-playing
+    /// pill (and anything like it) claims ~50pt beside the notch whenever a track changes, then
+    /// gives it back. Chasing each exhale re-laid the lyric out every minute or two, forever --
+    /// so growth only trusts room that has STAYED free for the whole window, while shrinks keep
+    /// following the instantaneous reading. The user's own slider drag also reads instantaneous:
+    /// an explicit gesture deserves the current answer, and the tripwire covers it.
+    @ObservationIgnored private var recentCeilings: [(at: Date, ceiling: CGFloat)] = []
 
     /// Measures as soon as the status item is actually in the menu bar, however long that takes.
     ///
@@ -289,8 +296,11 @@ import MediaRemoteAdapter
     /// CGWindowList as one full-width WindowServer surface.
     func statusItemDidMove() {
         menubarMoveRemeasure?.cancel()
+        // 600ms, not 250: the bar's own relayout animations (the clock rewriting itself every
+        // minute moves everything) are still mid-flight at 250ms, and a frame read then
+        // under-measures by a few points -- enough to trip a shrink that nothing called for.
         menubarMoveRemeasure = Task { @MainActor [weak self] in
-            try? await Task.sleep(for: .milliseconds(250))
+            try? await Task.sleep(for: .milliseconds(600))
             guard !Task.isCancelled else { return }
             self?.remeasureMenubarWidth(trigger: .statusItemMove)
         }
@@ -310,6 +320,8 @@ import MediaRemoteAdapter
             if userDefaultStorage.lastMeasuredMenubarWidth != Int(ceiling) {
                 userDefaultStorage.lastMeasuredMenubarWidth = Int(ceiling)
             }
+            recentCeilings.append((at: Date(), ceiling: ceiling))
+            recentCeilings.removeAll { $0.at.timeIntervalSinceNow < -300 }
             let target = max(min(cap, ceiling), 80)
             // Which of the two won matters and used to be invisible: an unmeasured fallback and
             // a genuinely cap-limited measurement both printed the same width.
@@ -319,10 +331,19 @@ import MediaRemoteAdapter
                 // spent wide past a shrunken ceiling risks macOS evicting someone's icon.
                 clearPendingGrowth()
                 apply(target, reason: reason)
-            } else if target > menubarLyricWidth {
-                considerGrowth(to: target, reason: reason, trigger: trigger)
             } else {
-                clearPendingGrowth()
+                let growthCeiling = trigger == .sliderChange
+                    ? ceiling
+                    : (recentCeilings.map(\.ceiling).min() ?? ceiling)
+                let growthTarget = max(min(cap, growthCeiling), 80)
+                if growthTarget > menubarLyricWidth {
+                    let growthReason = growthCeiling < ceiling
+                        ? "5-min floor \(Int(growthCeiling))pt"
+                        : reason
+                    considerGrowth(to: growthTarget, reason: growthReason, trigger: trigger)
+                } else {
+                    clearPendingGrowth()
+                }
             }
 
         case .overflowing:
