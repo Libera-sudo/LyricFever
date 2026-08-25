@@ -211,21 +211,49 @@ import MediaRemoteAdapter
     /// The latest ceiling, headroom already deducted, or nil when nothing could be measured.
     /// Published so the width slider can hatch the part of its track there is no room for.
     ///
-    /// One caveat for the reader: once the item has been pushed past the notch,
-    /// `MenubarSpace.availableWidth` answers with the current width minus 32 -- an instruction
-    /// to shrink rather than a measurement. As a hatch boundary it still tells the truth, that
-    /// the lyric is wider than the bar can hold, but it is not a reading of free space.
+    /// One caveat for the reader: while the item is collapsed behind the chevron this holds a
+    /// conservative value below the width that failed, not a reading of free space -- there is
+    /// no frame to read one from. It keeps the hatch honest while the recovery loop below
+    /// searches for a width macOS will place normally.
     var measuredMenubarWidth: CGFloat?
 
     /// What to trust before anything has been measured this launch: whatever the bar had room
     /// for last time, or a deliberately small starting width on a machine that has never been
     /// measured at all.
+    ///
+    /// The stored value is itself distrusted. One poisoned measurement -- 674pt of "space" read
+    /// off a frame parked half past the screen edge -- lived in this key for days and re-armed,
+    /// on every launch, the very spike it existed to prevent. Nothing beside a notch is 600pt
+    /// of free bar, so nothing above that is a measurement.
     private var lastKnownGoodWidth: CGFloat {
-        let remembered = userDefaultStorage.lastMeasuredMenubarWidth
-        return remembered > 0 ? CGFloat(remembered) : 180
+        let remembered = CGFloat(userDefaultStorage.lastMeasuredMenubarWidth)
+        return (80...600).contains(remembered) ? remembered : 180
     }
 
+    /// Why a remeasurement is running. Growth trusts triggers differently: a slider drag is the
+    /// user asking and gets an immediate answer, everything else is the bar shifting under us
+    /// and has to prove itself twice.
+    enum RemeasureTrigger {
+        case launch, screenChange, statusItemMove, sliderChange, growthConfirmation, overflowRecovery
+    }
+
+    /// A margin so the lyric never butts straight up against the notch. Deliberately short of
+    /// what fits: the space beside the notch is not ours to fill -- the frontmost app's menus
+    /// claim room on the other side of it, and any app may add a status item at any moment.
+    /// Taking all of it means the first thing that needs room collapses every status item
+    /// behind a chevron, so a good part of every measurement is left unclaimed.
+    private static let menubarHeadroom: CGFloat = 48
+
     @ObservationIgnored private var initialMeasurement: Task<Void, Never>?
+    /// A measured ceiling that would grow the item, waiting for a second reading to agree.
+    @ObservationIgnored private var pendingGrowth: CGFloat?
+    @ObservationIgnored private var growthConfirmation: Task<Void, Never>?
+    @ObservationIgnored private var overflowRemeasure: Task<Void, Never>?
+    @ObservationIgnored private var overflowRounds = 0
+    /// Whether any reading this session has confirmed the item is actually in the bar. Until
+    /// then the persisted width may seed the item; after it, an unmeasured blip may only pull
+    /// the width down, never up -- growing on faith is how the launch spike happened.
+    @ObservationIgnored private var hasMeasuredThisSession = false
 
     /// Measures as soon as the status item is actually in the menu bar, however long that takes.
     ///
@@ -244,11 +272,11 @@ import MediaRemoteAdapter
         initialMeasurement = Task { @MainActor [weak self] in
             for _ in 0..<25 {
                 guard let self, !Task.isCancelled else { return }
-                self.remeasureMenubarWidth()
+                self.remeasureMenubarWidth(trigger: .launch)
                 if self.measuredMenubarWidth != nil { return }
                 try? await Task.sleep(for: .milliseconds(400))
             }
-            print("Menubar: still unmeasured after 10s -- running on the slider's cap")
+            print("Menubar: still unmeasured after 10s -- running on the persisted last-known width")
         }
     }
 
@@ -264,46 +292,180 @@ import MediaRemoteAdapter
         menubarMoveRemeasure = Task { @MainActor [weak self] in
             try? await Task.sleep(for: .milliseconds(250))
             guard !Task.isCancelled else { return }
-            self?.remeasureMenubarWidth(afterStatusItemMove: true)
+            self?.remeasureMenubarWidth(trigger: .statusItemMove)
         }
     }
 
-    func remeasureMenubarWidth(afterStatusItemMove: Bool = false) {
+    func remeasureMenubarWidth(trigger: RemeasureTrigger) {
         let cap = CGFloat(userDefaultStorage.menubarWidth)
-        // A margin so the lyric never butts straight up against the notch.
-        // Deliberately short of what fits. The space beside the notch is not ours to fill: the
-        // frontmost app's menus claim room on the other side of it, and any app may add a
-        // status item at any moment. Taking all of it means the first thing that needs room
-        // collapses every status item behind a chevron, so a good part of the measurement is
-        // left unclaimed as headroom.
-        let headroom: CGFloat = 48
-        let measured = MenubarSpace.availableWidth(currentDrawnWidth: menubarLyricWidth).map { $0 - headroom }
-        measuredMenubarWidth = measured
-        if let measured {
-            userDefaultStorage.lastMeasuredMenubarWidth = Int(measured)
-        }
-        // Never claim a width that has not been verified. Falling back to the cap used to mean
-        // that every launch -- and every other failure -- grabbed the widest setting the user
-        // had ever chosen, for as long as the measurement kept failing. On a notched Mac that
-        // pushes other apps' icons off the bar, and macOS gives them back grudgingly. The last
-        // width known to fit stands in instead; the cap can still bring it down, just not up.
-        let ceiling = measured ?? lastKnownGoodWidth
-        let clamped = max(min(cap, ceiling), 80)
-        // Applying a new width moves the item, which posts another move, which lands back here:
-        // without a deadband the two chase each other a point at a time. It belongs to this path
-        // only -- dragging the slider stays exact to the point.
-        if afterStatusItemMove, abs(clamped - menubarLyricWidth) < 8 { return }
-        if clamped != menubarLyricWidth {
+        switch MenubarSpace.reading(currentDrawnWidth: menubarLyricWidth) {
+        case .space(let available):
+            endOverflowEpisode()
+            hasMeasuredThisSession = true
+            let ceiling = max(floor(available - Self.menubarHeadroom), 0)
+            measuredMenubarWidth = ceiling
+            // Only a verified reading may influence a later launch. The overflow and invalid
+            // cases below never write here -- a shrink instruction persisted as a capacity, or
+            // a corrupt frame persisted as a fact, poisons every session after it.
+            if userDefaultStorage.lastMeasuredMenubarWidth != Int(ceiling) {
+                userDefaultStorage.lastMeasuredMenubarWidth = Int(ceiling)
+            }
+            let target = max(min(cap, ceiling), 80)
             // Which of the two won matters and used to be invisible: an unmeasured fallback and
             // a genuinely cap-limited measurement both printed the same width.
-            let reason: String
-            if let measured {
-                reason = measured < cap ? "space \(Int(measured))pt" : "cap \(Int(cap))pt"
+            let reason = ceiling < cap ? "space \(Int(ceiling))pt" : "cap \(Int(cap))pt"
+            if target < menubarLyricWidth {
+                // Shrinks apply immediately, on one sample, whatever the trigger: every second
+                // spent wide past a shrunken ceiling risks macOS evicting someone's icon.
+                clearPendingGrowth()
+                apply(target, reason: reason)
+            } else if target > menubarLyricWidth {
+                considerGrowth(to: target, reason: reason, trigger: trigger)
             } else {
-                reason = "UNMEASURED, held at last known \(Int(lastKnownGoodWidth))pt"
+                clearPendingGrowth()
             }
-            print("Menubar: lyric width \(Int(menubarLyricWidth))pt -> \(Int(clamped))pt (\(reason))")
-            menubarLyricWidth = clamped
+
+        case .overflowing:
+            clearPendingGrowth()
+            hasMeasuredThisSession = true
+            // No frame to read a ceiling from; something below the current width keeps the
+            // slider's hatch telling the truth that this width did not fit.
+            measuredMenubarWidth = max(menubarLyricWidth - Self.menubarHeadroom - 32, 0)
+            recoverFromOverflow()
+
+        case .invalid:
+            endOverflowEpisode()
+            clearPendingGrowth()
+            measuredMenubarWidth = nil
+            holdUnmeasured(cap: cap, reason: "INVALID reading")
+
+        case .unplaced:
+            endOverflowEpisode()
+            clearPendingGrowth()
+            measuredMenubarWidth = nil
+            holdUnmeasured(cap: cap, reason: "UNPLACED")
+
+        case .noReference:
+            endOverflowEpisode()
+            clearPendingGrowth()
+            measuredMenubarWidth = nil
+            holdUnmeasured(cap: cap, reason: "NO NOTCH")
+        }
+    }
+
+    /// Nothing was measured. Never claim a width that has not been verified: before the first
+    /// real reading the persisted last-known width seeds the item, and after it a failed
+    /// reading may only enforce the cap downward -- see `hasMeasuredThisSession`.
+    private func holdUnmeasured(cap: CGFloat, reason: String) {
+        let ceiling = hasMeasuredThisSession ? menubarLyricWidth : lastKnownGoodWidth
+        let clamped = max(min(cap, ceiling), 80)
+        if clamped != menubarLyricWidth {
+            apply(clamped, reason: "\(reason), held at \(Int(ceiling))pt")
+        }
+    }
+
+    /// A reading wants the item wider. How much proof that takes depends on who asked.
+    private func considerGrowth(to target: CGFloat, reason: String, trigger: RemeasureTrigger) {
+        // The user dragging the cap up gets an immediate answer -- making a deliberate gesture
+        // wait a second reads as a broken slider. The tripwire in `apply` still takes the
+        // growth back if the bar disagrees a moment later.
+        if trigger == .sliderChange {
+            clearPendingGrowth()
+            apply(target, reason: reason)
+            return
+        }
+        // Applying a width moves the item, which posts a move, which lands back here: without a
+        // deadband the two chase each other a point at a time. Growth only -- the old two-sided
+        // version once pinned the item 6pt wider than a freshly shrunken ceiling.
+        if trigger == .statusItemMove, pendingGrowth == nil, target - menubarLyricWidth < 8 {
+            return
+        }
+        if let pending = pendingGrowth, abs(pending - target) <= 8 {
+            // Agreement alone is not confirmation: two samples 250ms apart can both catch the
+            // same transient. Only the dedicated re-read a full second later applies it.
+            if trigger == .growthConfirmation {
+                clearPendingGrowth()
+                apply(target, reason: "\(reason), confirmed")
+            }
+            return
+        }
+        pendingGrowth = target
+        growthConfirmation?.cancel()
+        growthConfirmation = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(1))
+            guard let self, !Task.isCancelled else { return }
+            self.remeasureMenubarWidth(trigger: .growthConfirmation)
+        }
+    }
+
+    private func clearPendingGrowth() {
+        growthConfirmation?.cancel()
+        growthConfirmation = nil
+        pendingGrowth = nil
+    }
+
+    /// The item is collapsed behind the chevron. Pull it in 48pt at a time until a reading
+    /// finds it placed again; `.space` ends the episode via `endOverflowEpisode`. Bounded,
+    /// because a bar that stays hostile (or a reading that misclassifies forever) must not
+    /// shrink-and-poll for the rest of the session.
+    private func recoverFromOverflow() {
+        guard overflowRounds < 10 else {
+            print("Menubar: overflow recovery gave up after 10 rounds")
+            return
+        }
+        overflowRounds += 1
+        let reduced = max(menubarLyricWidth - 48, 80)
+        if reduced != menubarLyricWidth {
+            apply(reduced, reason: "overflowing, recovery round \(overflowRounds)")
+        }
+        overflowRemeasure?.cancel()
+        overflowRemeasure = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(1))
+            guard let self, !Task.isCancelled else { return }
+            self.remeasureMenubarWidth(trigger: .overflowRecovery)
+        }
+    }
+
+    private func endOverflowEpisode() {
+        overflowRemeasure?.cancel()
+        overflowRemeasure = nil
+        overflowRounds = 0
+    }
+
+    private func apply(_ width: CGFloat, reason: String) {
+        guard width != menubarLyricWidth else { return }
+        let previous = menubarLyricWidth
+        print("Menubar: lyric width \(Int(previous))pt -> \(Int(width))pt (\(reason))")
+        menubarLyricWidth = width
+        if width > previous {
+            verifyGrowth(from: previous, to: width)
+        }
+    }
+
+    /// Tripwire on every applied increase: one second later, ask the bar whether the new width
+    /// actually fit. Space freed by our own overflow evicting a neighbour's icon measures as
+    /// genuine, so no filter on the way in can catch everything -- but an increase that
+    /// immediately collapses us or shrinks the ceiling is caught here and undone before macOS
+    /// starts evicting.
+    private func verifyGrowth(from previous: CGFloat, to applied: CGFloat) {
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(1))
+            // Superseded by a later change (another apply, a slider drag)? Then this check
+            // belongs to a width that is no longer on show.
+            guard let self, self.menubarLyricWidth == applied else { return }
+            switch MenubarSpace.reading(currentDrawnWidth: self.menubarLyricWidth) {
+            case .overflowing:
+                print("Menubar: growth to \(Int(applied))pt collapsed the item -- rolling back to \(Int(previous))pt")
+                self.menubarLyricWidth = previous
+            case .space(let available):
+                let ceiling = max(floor(available - Self.menubarHeadroom), 0)
+                if ceiling < applied {
+                    print("Menubar: growth to \(Int(applied))pt exceeds remeasured \(Int(ceiling))pt -- rolling back to \(Int(previous))pt")
+                    self.menubarLyricWidth = previous
+                }
+            case .unplaced, .noReference, .invalid:
+                break
+            }
         }
     }
     

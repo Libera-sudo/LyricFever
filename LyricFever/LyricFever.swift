@@ -60,15 +60,18 @@ struct LyricFever: App {
                 viewmodel.measureUntilPlaced()
             }
             .onReceive(NotificationCenter.default.publisher(for: NSApplication.didChangeScreenParametersNotification)) { _ in
-                viewmodel.remeasureMenubarWidth()
+                viewmodel.remeasureMenubarWidth(trigger: .screenChange)
             }
             .onReceive(NotificationCenter.default.publisher(for: NSWindow.didMoveNotification)) { notification in
                 guard let moved = notification.object as? NSWindow else { return }
-                guard moved === MenubarSpace.statusItemWindow() else { return }
+                // The loose test, not `statusItemWindow()`: the move that matters most is the
+                // one that parks the item off the screen edge, and by the time it has posted,
+                // the strict lookup no longer returns that window.
+                guard MenubarSpace.involvesStatusItem(moved) else { return }
                 viewmodel.statusItemDidMove()
             }
             .onChange(of: viewmodel.userDefaultStorage.menubarWidth) {
-                viewmodel.remeasureMenubarWidth()
+                viewmodel.remeasureMenubarWidth(trigger: .sliderChange)
             }
             .onReceive(DistributedNotificationCenter.default().publisher(for: Notification.Name(rawValue:  "com.apple.Music.playerInfo"))) { notification in
                 viewmodel.appleMusicPlaybackDidChange(notification)
