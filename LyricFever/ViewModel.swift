@@ -1234,14 +1234,21 @@ import MediaRemoteAdapter
     /// Detects a source language only when several lyric lines agree on a true majority.
     private func detectedLyricsLanguage(in lines: [LyricLine]) -> Locale.Language? {
         let recognizer = NLLanguageRecognizer()
-        var languageCounts: [NLLanguage: Int] = [:]
+        var languageCounts: [String: Int] = [:]
         var recognizedLineCount = 0
 
         for line in lines {
             recognizer.reset()
             recognizer.processString(line.words)
             guard let language = recognizer.dominantLanguage else { continue }
-            languageCounts[language, default: 0] += 1
+            // Counted at the languageCode level, not per NLLanguage: the recognizer splits
+            // Chinese into zh-Hans/zh-Hant line by line -- any line made of characters the
+            // two scripts share can land either way -- and a script variant concentrates
+            // exactly like a genuine second language (22-32% of lines in simplified-Chinese
+            // songs measured here), which the runner-up rule below exists to catch. The only
+            // consumer compares languageCode anyway.
+            let code = Locale.Language(identifier: language.rawValue).languageCode?.identifier ?? language.rawValue
+            languageCounts[code, default: 0] += 1
             recognizedLineCount += 1
         }
 
@@ -1265,7 +1272,7 @@ import MediaRemoteAdapter
         }
         let runnerUp = languageCounts.filter { $0.key != majority.key }.values.max() ?? 0
         guard Double(runnerUp) < 0.20 * Double(recognizedLineCount) else { return nil }
-        return Locale.Language(identifier: majority.key.rawValue)
+        return Locale.Language(identifier: majority.key)
     }
 
     /// Puts the original words back for lines that are chants rather than sentences.
